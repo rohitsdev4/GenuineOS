@@ -1,0 +1,303 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model AppSettings {
+  id                   String   @id @default(cuid())
+  llmProvider          String   @default("gemini")
+  apiKey               String?
+  model                String   @default("gemini-2.0-flash-lite")
+  temperature          Float    @default(0.7)
+  maxTokens            Int      @default(4096)
+  thinkingEnabled      Boolean  @default(false)
+  appName              String   @default("GenuineOS")
+  theme                String   @default("dark")
+  accentColor          String   @default("emerald")
+  currency             String   @default("₹")
+  dateFormat           String   @default("DD/MM/YYYY")
+  notificationsEnabled Boolean  @default(true)
+  taskReminders        Boolean  @default(true)
+  paymentAlerts        Boolean  @default(true)
+  businessName         String?
+  businessPhone        String?
+  businessAddress      String?
+  businessEmail        String?
+  businessGst          String?
+  googleSheetId        String?
+  googleApiKey         String?
+  googleSheetConnected Boolean  @default(false)
+  lastSyncAt           DateTime?
+  lastSyncStatus       String?
+  lastSyncMessage      String?
+  autoSync             Boolean  @default(false)
+  syncInterval         Int      @default(60)
+  createdAt            DateTime @default(now())
+  updatedAt            DateTime @updatedAt
+}
+
+model Manager {
+  id        String    @id @default(cuid())
+  name      String
+  phone     String?
+  role      String    @default("manager")
+  status    String    @default("active")
+  notes     String?
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  payments  Payment[]
+  expenses  Expense[]
+}
+
+model Client {
+  id          String        @id @default(cuid())
+  name        String
+  phone       String?
+  email       String?
+  address     String?
+  gstNumber   String?
+  type        String        @default("customer")
+  status      String        @default("active")
+  creditLimit Float?
+  notes       String?
+  createdAt   DateTime      @default(now())
+  updatedAt   DateTime      @updatedAt
+  payments    Payment[]
+  receivables Receivable[]
+  sites       Site[]
+}
+
+model Site {
+  id              String        @id @default(cuid())
+  name            String
+  location        String?
+  clientId        String?
+  contractor      String?
+  contractorPhone String?
+  contractValue   Float         @default(0)
+  receivedAmount  Float         @default(0)
+  pendingAmount   Float         @default(0)
+  extraWorkAmount Float         @default(0)
+  extraWorkPaid   Float         @default(0)
+  status          String        @default("active")
+  progress        Int           @default(0)
+  startDate       DateTime?
+  endDate         DateTime?
+  estimatedDays   Int?
+  description     String?
+  notes           String?
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
+  expenses        Expense[]
+  extraWorks      ExtraWork[]
+  labours         Labour[]
+  client          Client?       @relation(fields: [clientId], references: [id])
+  payments        SitePayment[]
+  tasks           Task[]
+}
+
+model Payment {
+  id        String   @id @default(cuid())
+  managerId String?
+  clientId  String?
+  partner   String?
+  party     String
+  amount    Float
+  date      DateTime @default(now())
+  mode      String   @default("cash")
+  reference String?
+  category  String?
+  siteId    String?
+  notes     String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  manager   Manager? @relation(fields: [managerId], references: [id])
+  client    Client?  @relation(fields: [clientId], references: [id])
+}
+
+model SitePayment {
+  id        String   @id @default(cuid())
+  siteId    String
+  amount    Float
+  date      DateTime @default(now())
+  mode      String   @default("cash")
+  reference String?
+  category  String   @default("contract")
+  notes     String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  site      Site     @relation(fields: [siteId], references: [id])
+}
+
+model Expense {
+  id          String   @id @default(cuid())
+  managerId   String?
+  partner     String?
+  title       String
+  amount      Float
+  date        DateTime @default(now())
+  category    String   @default("general")
+  paidTo      String?
+  mode        String   @default("cash")
+  billNo      String?
+  billImage   String?
+  notes       String?
+  siteId      String?
+  isRecurring Boolean  @default(false)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  manager     Manager? @relation(fields: [managerId], references: [id])
+  site        Site?    @relation(fields: [siteId], references: [id])
+}
+
+model Receivable {
+  id             String    @id @default(cuid())
+  clientId       String?
+  party          String
+  amount         Float
+  dueDate        DateTime?
+  receivedAmount Float     @default(0)
+  status         String    @default("pending")
+  description    String?
+  invoiceNo      String?
+  invoiceImage   String?
+  priority       String    @default("medium")
+  followUpDate   DateTime?
+  followUpNotes  String?
+  notes          String?
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+  client         Client?   @relation(fields: [clientId], references: [id])
+}
+
+model Task {
+  id          String    @id @default(cuid())
+  title       String
+  description String?
+  status      String    @default("pending")
+  priority    String    @default("medium")
+  dueDate     DateTime?
+  dueTime     String?
+  completedAt DateTime?
+  tags        String?
+  assignee    String?
+  siteId      String?
+  reminder    Boolean   @default(false)
+  reminderAt  DateTime?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  site        Site?     @relation(fields: [siteId], references: [id])
+}
+
+model Labour {
+  id            String          @id @default(cuid())
+  name          String
+  phone         String?
+  aadhaar       String?
+  address       String?
+  role          String          @default("worker")
+  dailyWage     Float           @default(0)
+  monthlySalary Float           @default(0)
+  bankName      String?
+  bankAccount   String?
+  bankIfsc      String?
+  advanceAmount Float           @default(0)
+  siteId        String?
+  status        String          @default("active")
+  skillLevel    String          @default("semi-skilled")
+  joinDate      DateTime?
+  notes         String?
+  createdAt     DateTime        @default(now())
+  updatedAt     DateTime        @updatedAt
+  site          Site?           @relation(fields: [siteId], references: [id])
+  payments      LabourPayment[]
+  attendance    Attendance[]
+}
+
+model LabourPayment {
+  id          String   @id @default(cuid())
+  labourId    String
+  amount      Float
+  date        DateTime @default(now())
+  month       String?
+  daysWorked  Int      @default(0)
+  mode        String   @default("cash")
+  reference   String?
+  notes       String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  labour      Labour   @relation(fields: [labourId], references: [id])
+}
+
+model Attendance {
+  id          String   @id @default(cuid())
+  labourId    String
+  date        DateTime @default(now())
+  present     Boolean  @default(true)
+  hoursWorked Float    @default(8)
+  overtime    Float    @default(0)
+  notes       String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  labour      Labour   @relation(fields: [labourId], references: [id])
+}
+
+model ExtraWork {
+  id          String   @id @default(cuid())
+  siteId      String
+  description String
+  amount      Float
+  paidAmount  Float    @default(0)
+  date        DateTime @default(now())
+  notes       String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  site        Site     @relation(fields: [siteId], references: [id])
+}
+
+model Note {
+  id          String   @id @default(cuid())
+  title       String
+  content     String
+  category    String   @default("general")
+  color       String   @default("default")
+  mood        String?
+  isPinned    Boolean  @default(false)
+  reminder    Boolean  @default(false)
+  reminderAt  DateTime?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+model Habit {
+  id          String     @id @default(cuid())
+  name        String
+  description String?
+  category    String     @default("health")
+  frequency   String     @default("daily")
+  color       String     @default("emerald")
+  icon        String     @default("✅")
+  targetCount Int        @default(1)
+  unit        String?
+  status      String     @default("active")
+  createdAt   DateTime   @default(now())
+  updatedAt   DateTime   @updatedAt
+  logs        HabitLog[]
+}
+
+model HabitLog {
+  id        String   @id @default(cuid())
+  habitId   String
+  date      DateTime @default(now())
+  completed Boolean  @default(true)
+  count     Int      @default(1)
+  notes     String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  habit     Habit    @relation(fields: [habitId], references: [id], onDelete: Cascade)
+  @@unique([habitId, date])
+}
