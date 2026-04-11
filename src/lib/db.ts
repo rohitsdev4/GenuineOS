@@ -4,5 +4,5 @@ export { db, generateId, nowISO, toISO, createDefaultSettings, getTable } from '
 export type {
   AppSettings, Manager, Client, Site, Payment, SitePayment,
   Expense, Receivable, Task, Labour, LabourPayment, Attendance,
-  ExtraWork, Note, Habit, HabitLog
+  ExtraWork, Note, Habit, HabitLog, ChatMessage
 } from './indexeddb';

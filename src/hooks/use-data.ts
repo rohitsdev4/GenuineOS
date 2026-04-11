@@ -212,16 +212,39 @@ export function useChat() {
     store.addChatMessage({ id: crypto.randomUUID(), role: 'user', content: message, timestamp: new Date() });
 
     try {
+      // Read API key and model from IndexedDB settings
+      let apiKey = '';
+      let model = 'gemini-2.5-flash';
+      let temperature = 0.7;
+      let maxTokens = 8192;
+      try {
+        const settings = await getSettings();
+        apiKey = settings.apiKey || '';
+        model = settings.model || 'gemini-2.5-flash';
+        temperature = settings.temperature ?? 0.7;
+        maxTokens = settings.maxTokens ?? 8192;
+      } catch { /* settings not available */ }
+
+      // Build history from last 20 messages (larger context window)
+      const history = store.chatMessages.slice(-20).map(m => ({ role: m.role, content: m.content }));
+
       const res = await fetch('/api/chat', {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           message,
-          history: store.chatMessages.slice(-10).map(m => ({ role: m.role, content: m.content })),
+          history,
           thinkingEnabled: store.thinkingEnabled,
           memoryContext: store.memoryContext,
+          apiKey,
+          model,
+          temperature,
+          maxTokens,
         }),
       });
-      if (!res.ok) throw new Error('Failed');
+      if (!res.ok) {
+        const errData = await res.json().catch(() => ({}));
+        throw new Error(errData.error || `Request failed (${res.status})`);
+      }
       const data = await res.json();
 
       // Handle tool calls from server — execute client-side

@@ -9,10 +9,13 @@ import {
   Brain,
   ChevronDown,
   ChevronUp,
-  Sparkles,
+  Settings,
+  AlertCircle,
+  CheckCircle2,
 } from 'lucide-react';
 import { useChat } from '@/hooks/use-data';
 import { useAppStore } from '@/stores/app-store';
+import { useSettings } from '@/hooks/use-data';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
@@ -155,7 +158,7 @@ function MessageBubble({ msg }: { msg: import('@/stores/app-store').ChatMessage 
 }
 
 /* ── Welcome screen ───────────────────────────────────────────────── */
-function WelcomeScreen({ onSend }: { onSend: (msg: string) => void }) {
+function WelcomeScreen({ onSend, hasApiKey, onGoToSettings }: { onSend: (msg: string) => void; hasApiKey: boolean; onGoToSettings: () => void }) {
   return (
     <div className="flex flex-col items-center justify-center py-12 px-4 text-center">
       <div className="w-16 h-16 rounded-2xl bg-emerald-500/10 flex items-center justify-center mb-4">
@@ -164,21 +167,50 @@ function WelcomeScreen({ onSend }: { onSend: (msg: string) => void }) {
       <h3 className="text-lg font-semibold mb-1">
         GenuineOS AI Assistant
       </h3>
-      <p className="text-sm text-muted-foreground max-w-sm mb-6 leading-relaxed">
-        I can help you manage your business. Try these:
+      <p className="text-sm text-muted-foreground max-w-sm mb-4 leading-relaxed">
+        {hasApiKey
+          ? 'I can help you manage your business. Try these:'
+          : 'Set up your Gemini API key to get started.'}
       </p>
-      <div className="flex flex-wrap gap-2 justify-center">
-        {suggestions.map((s) => (
-          <button
-            key={s}
-            type="button"
-            onClick={() => onSend(s)}
-            className="px-3 py-2 text-sm rounded-lg border bg-card hover:bg-accent text-foreground transition-colors cursor-pointer"
+
+      {!hasApiKey && (
+        <div className="mb-6 space-y-3 w-full max-w-sm">
+          <div className="rounded-lg border border-amber-500/20 bg-amber-500/5 p-3">
+            <div className="flex items-start gap-2">
+              <AlertCircle className="w-4 h-4 text-amber-500 mt-0.5 shrink-0" />
+              <div className="text-left">
+                <p className="text-xs font-medium text-amber-500">API Key Required</p>
+                <p className="text-[11px] text-muted-foreground mt-0.5">
+                  Go to Settings &gt; AI Configuration and add your free Gemini API key from Google AI Studio.
+                </p>
+              </div>
+            </div>
+          </div>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={onGoToSettings}
+            className="gap-1.5"
           >
-            {s}
-          </button>
-        ))}
-      </div>
+            <Settings className="w-3.5 h-3.5" /> Go to Settings
+          </Button>
+        </div>
+      )}
+
+      {hasApiKey && (
+        <div className="flex flex-wrap gap-2 justify-center">
+          {suggestions.map((s) => (
+            <button
+              key={s}
+              type="button"
+              onClick={() => onSend(s)}
+              className="px-3 py-2 text-sm rounded-lg border bg-card hover:bg-accent text-foreground transition-colors cursor-pointer"
+            >
+              {s}
+            </button>
+          ))}
+        </div>
+      )}
     </div>
   );
 }
@@ -210,12 +242,14 @@ function MemoryPanel() {
 /* ── Main chat tab ────────────────────────────────────────────────── */
 export default function ChatTab() {
   const { sendMessage } = useChat();
+  const { data: settings } = useSettings();
   const {
     chatMessages,
     clearChatMessages,
     isChatLoading,
     thinkingEnabled,
     setThinkingEnabled,
+    setActiveTab,
   } = useAppStore();
 
   const [input, setInput] = useState('');
@@ -223,6 +257,10 @@ export default function ChatTab() {
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
+
+  const s = settings as Record<string, any> | undefined;
+  const hasApiKey = !!s?.apiKey;
+  const modelName = s?.model || 'gemini-2.5-flash';
 
   // Auto-scroll to bottom when messages change or loading starts
   useEffect(() => {
@@ -263,7 +301,20 @@ export default function ChatTab() {
           <div className="w-8 h-8 rounded-lg bg-emerald-500/10 flex items-center justify-center">
             <Bot className="w-4 h-4 text-emerald-500" />
           </div>
-          <h2 className="text-base font-semibold">AI Assistant</h2>
+          <div className="flex flex-col">
+            <h2 className="text-base font-semibold leading-tight">AI Assistant</h2>
+            <div className="flex items-center gap-1.5">
+              {hasApiKey ? (
+                <Badge variant="secondary" className="text-[10px] h-4 px-1.5 py-0 bg-emerald-500/10 text-emerald-500 border-emerald-500/20 gap-1">
+                  <CheckCircle2 className="w-2.5 h-2.5" /> {modelName}
+                </Badge>
+              ) : (
+                <Badge variant="secondary" className="text-[10px] h-4 px-1.5 py-0 bg-amber-500/10 text-amber-500 border-amber-500/20 gap-1">
+                  <AlertCircle className="w-2.5 h-2.5" /> No API Key
+                </Badge>
+              )}
+            </div>
+          </div>
         </div>
 
         <div className="flex items-center gap-2">
@@ -341,7 +392,7 @@ export default function ChatTab() {
       <ScrollArea className="flex-1 overflow-auto">
         <div className="p-4 space-y-4 min-h-0">
           {chatMessages.length === 0 ? (
-            <WelcomeScreen onSend={sendMessage} />
+            <WelcomeScreen onSend={sendMessage} hasApiKey={hasApiKey} onGoToSettings={() => setActiveTab('settings')} />
           ) : (
             <>
               {chatMessages.map((msg) => (
@@ -360,20 +411,26 @@ export default function ChatTab() {
 
       {/* ── Input area ──────────────────────────────────────────── */}
       <div className="p-3 flex-shrink-0">
+        {!hasApiKey && (
+          <div className="mb-2 flex items-center gap-1.5 text-[11px] text-amber-500">
+            <AlertCircle className="w-3 h-3" />
+            <span>Add your Gemini API key in Settings to start chatting</span>
+          </div>
+        )}
         <div className="flex items-end gap-2">
           <Textarea
             ref={textareaRef}
             value={input}
             onChange={handleTextareaChange}
             onKeyDown={handleKeyDown}
-            placeholder="Ask me anything..."
+            placeholder={hasApiKey ? "Ask me anything..." : "Set up API key in Settings first..."}
             className="min-h-[40px] max-h-24 resize-none rounded-xl border-border/50 bg-card/50 text-sm flex-1"
             rows={1}
-            disabled={isChatLoading}
+            disabled={isChatLoading || !hasApiKey}
           />
           <Button
             onClick={handleSend}
-            disabled={!input.trim() || isChatLoading}
+            disabled={!input.trim() || isChatLoading || !hasApiKey}
             size="icon"
             className="h-10 w-10 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white flex-shrink-0"
           >

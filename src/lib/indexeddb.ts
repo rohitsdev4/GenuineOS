@@ -280,6 +280,15 @@ export interface HabitLog {
   updatedAt: string;
 }
 
+export interface ChatMessage {
+  id: string;
+  role: 'user' | 'assistant' | 'system';
+  content: string;
+  timestamp: string;
+  toolUsed?: boolean;
+  thinkingProcess?: string;
+}
+
 // ── Dexie Database ──
 
 class GenuineDB extends Dexie {
@@ -299,11 +308,12 @@ class GenuineDB extends Dexie {
   note!: EntityTable<Note, 'id'>;
   habit!: EntityTable<Habit, 'id'>;
   habitLog!: EntityTable<HabitLog, 'id'>;
+  chatMessage!: EntityTable<ChatMessage, 'id'>;
 
   constructor() {
     super('GenuineOS');
 
-    this.version(1).stores({
+    this.version(2).stores({
       appSettings: 'id',
       manager: 'id, name, status, role',
       client: 'id, name, status, type',
@@ -320,6 +330,7 @@ class GenuineDB extends Dexie {
       note: 'id, title, category, color',
       habit: 'id, name, category, status, frequency',
       habitLog: 'id, habitId, date',
+      chatMessage: 'id, role, timestamp',
     });
   }
 }
@@ -334,7 +345,7 @@ export function createDefaultSettings(): AppSettings {
     id: 'main',
     llmProvider: 'gemini',
     apiKey: null,
-    model: 'gemini-2.0-flash-lite',
+    model: 'gemini-2.5-flash',
     temperature: 0.7,
     maxTokens: 4096,
     thinkingEnabled: false,

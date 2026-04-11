@@ -46,7 +46,13 @@ const accentColors = [
 ];
 
 const currencies = ['₹', '$', '€', '£'];
-const llmProviders = ['gemini', 'groq', 'openrouter'];
+const llmProviders = ['gemini'];
+const geminiModels = [
+  { value: 'gemini-2.5-flash', label: 'Gemini 2.5 Flash (Recommended)' },
+  { value: 'gemini-2.5-flash-preview-05-20', label: 'Gemini 2.5 Flash Preview (Thinking)' },
+  { value: 'gemini-2.0-flash', label: 'Gemini 2.0 Flash' },
+  { value: 'gemini-2.0-flash-lite', label: 'Gemini 2.0 Flash Lite (Fast)' },
+];
 const syncIntervals = [
   { label: '15 minutes', value: 15 },
   { label: '30 minutes', value: 30 },
@@ -99,8 +105,8 @@ export default function SettingsTab() {
     businessEmail: '', businessGst: '',
   });
   const [llm, setLlm] = useState({
-    apiKey: '', modelName: '', provider: 'gemini',
-    temperature: 0.7, maxTokens: 4096,
+    apiKey: '', modelName: 'gemini-2.5-flash', provider: 'gemini',
+    temperature: 0.7, maxTokens: 8192,
   });
   const [showApiKey, setShowApiKey] = useState(false);
   const [sheets, setSheets] = useState({ sheetId: '', apiKey: '' });
@@ -131,10 +137,10 @@ export default function SettingsTab() {
       });
       setLlm({
         apiKey: s.apiKey || '',
-        modelName: s.model || '',
+        modelName: s.model || 'gemini-2.5-flash',
         provider: s.llmProvider || 'gemini',
         temperature: s.temperature ?? 0.7,
-        maxTokens: s.maxTokens ?? 4096,
+        maxTokens: s.maxTokens ?? 8192,
       });
       setSheets({ sheetId: s.googleSheetId || '', apiKey: s.googleApiKey || '' });
       setAppearance({
@@ -674,50 +680,57 @@ export default function SettingsTab() {
             <Card>
               <CardHeader>
                 <CardTitle className="text-base flex items-center gap-2">
-                  <Bot className="size-4 text-emerald-500" /> LLM & AI Configuration
+                  <Bot className="size-4 text-emerald-500" /> AI Configuration
                 </CardTitle>
-                <CardDescription>Configure the AI model powering your smart assistant</CardDescription>
+                <CardDescription>Configure the Gemini AI model for your smart assistant</CardDescription>
               </CardHeader>
               <CardContent className="space-y-5">
+                <div className="rounded-lg border bg-muted/30 p-3">
+                  <p className="text-xs text-muted-foreground leading-relaxed">
+                    Uses <span className="font-medium text-foreground">Google Gemini Free Tier</span> API. Get your free API key from{' '}
+                    <a
+                      href="https://aistudio.google.com/apikey"
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-emerald-500 underline underline-offset-2 hover:text-emerald-400"
+                    >
+                      Google AI Studio
+                    </a>.
+                    Free tier supports up to 15 requests/minute and 1M tokens context window.
+                  </p>
+                </div>
+
                 <div className="space-y-2">
-                  <Label>Provider</Label>
+                  <Label>Model</Label>
                   <Select
-                    value={llm.provider}
-                    onValueChange={(v) => setLlm((p) => ({ ...p, provider: v }))}
+                    value={llm.modelName || 'gemini-2.5-flash'}
+                    onValueChange={(v) => setLlm((p) => ({ ...p, modelName: v }))}
                   >
                     <SelectTrigger className="w-full">
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
-                      {llmProviders.map((p) => (
-                        <SelectItem key={p} value={p} className="capitalize">
-                          {p.charAt(0).toUpperCase() + p.slice(1)}
+                      {geminiModels.map((m) => (
+                        <SelectItem key={m.value} value={m.value}>
+                          {m.label}
                         </SelectItem>
                       ))}
                     </SelectContent>
                   </Select>
+                  <p className="text-[11px] text-muted-foreground">Gemini 2.5 Flash is recommended for best quality and speed</p>
                 </div>
 
                 <div className="space-y-2">
-                  <Label htmlFor="llm-model">Model Name</Label>
-                  <Input
-                    id="llm-model"
-                    value={llm.modelName}
-                    onChange={(e) => setLlm((p) => ({ ...p, modelName: e.target.value }))}
-                    placeholder="e.g. gemini-2.0-flash-lite"
-                  />
-                  <p className="text-[11px] text-muted-foreground">The exact model identifier from your provider</p>
-                </div>
-
-                <div className="space-y-2">
-                  <Label htmlFor="llm-key">API Key</Label>
+                  <Label htmlFor="llm-key">
+                    Gemini API Key <span className="text-red-500">*</span>
+                  </Label>
                   <div className="relative">
                     <Input
                       id="llm-key"
                       type={showApiKey ? 'text' : 'password'}
                       value={llm.apiKey}
                       onChange={(e) => setLlm((p) => ({ ...p, apiKey: e.target.value }))}
-                      placeholder="Enter your API key"
+                      placeholder="AIzaSy..."
                       className="pr-10"
                     />
                     <Button
@@ -730,6 +743,11 @@ export default function SettingsTab() {
                       {showApiKey ? <EyeOff className="size-4" /> : <Eye className="size-4" />}
                     </Button>
                   </div>
+                  {llm.apiKey && (
+                    <p className="text-[11px] text-emerald-500 flex items-center gap-1">
+                      <Check className="size-3" /> API key configured
+                    </p>
+                  )}
                 </div>
 
                 <div className="space-y-3">
@@ -755,17 +773,17 @@ export default function SettingsTab() {
                 </div>
 
                 <div className="space-y-2">
-                  <Label htmlFor="llm-tokens">Max Tokens</Label>
+                  <Label htmlFor="llm-tokens">Max Output Tokens</Label>
                   <Input
                     id="llm-tokens"
                     type="number"
                     value={llm.maxTokens}
-                    onChange={(e) => setLlm((p) => ({ ...p, maxTokens: parseInt(e.target.value) || 4096 }))}
+                    onChange={(e) => setLlm((p) => ({ ...p, maxTokens: parseInt(e.target.value) || 8192 }))}
                     min={256}
-                    max={131072}
-                    placeholder="4096"
+                    max={65536}
+                    placeholder="8192"
                   />
-                  <p className="text-[11px] text-muted-foreground">Maximum response length (256–131072)</p>
+                  <p className="text-[11px] text-muted-foreground">Maximum response length (256–65536). Higher values use more quota.</p>
                 </div>
 
                 <Separator />
@@ -775,7 +793,7 @@ export default function SettingsTab() {
                     <Label className="text-sm font-medium flex items-center gap-1.5">
                       <Brain className="size-3.5 text-emerald-500" /> Thinking Mode
                     </Label>
-                    <p className="text-xs text-muted-foreground">Enable extended reasoning for complex queries</p>
+                    <p className="text-xs text-muted-foreground">Extended reasoning for complex queries (uses more tokens)</p>
                   </div>
                   <Switch
                     checked={thinkingEnabled}
@@ -788,7 +806,7 @@ export default function SettingsTab() {
                 <div className="flex justify-end">
                   <Button size="sm" onClick={saveLlm} disabled={isUpdating} className="gap-1.5 min-w-[120px]">
                     {isUpdating ? <Loader2 className="size-3.5 animate-spin" /> : <Save className="size-3.5" />}
-                    {isUpdating ? 'Saving...' : 'Save LLM Config'}
+                    {isUpdating ? 'Saving...' : 'Save AI Config'}
                   </Button>
                 </div>
               </CardContent>

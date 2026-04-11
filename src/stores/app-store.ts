@@ -18,6 +18,7 @@ interface AppState {
 
   // Chat
   chatMessages: ChatMessage[];
+  chatLoaded: boolean;
   addChatMessage: (msg: ChatMessage) => void;
   clearChatMessages: () => void;
   isChatLoading: boolean;
@@ -39,25 +40,14 @@ interface AppState {
 }
 
 const MEMORY_KEY = 'genuineos_memory';
-const CHAT_KEY = 'genuineos_chat';
 const THINKING_KEY = 'genuineos_thinking';
 
-// Load persisted state
-function loadMemory() {
+// Load persisted state from localStorage (memory/thinking only — chat goes to IndexedDB)
+function loadMemory(): string {
   if (typeof window !== 'undefined') {
     try { return localStorage.getItem(MEMORY_KEY) || ''; } catch { return ''; }
   }
   return '';
-}
-
-function loadChat(): ChatMessage[] {
-  if (typeof window !== 'undefined') {
-    try {
-      const saved = localStorage.getItem(CHAT_KEY);
-      return saved ? JSON.parse(saved) : [];
-    } catch { return []; }
-  }
-  return [];
 }
 
 function loadThinking(): boolean {
@@ -67,6 +57,70 @@ function loadThinking(): boolean {
   return false;
 }
 
+// Load chat messages from IndexedDB
+async function loadChatFromIndexedDB(): Promise<ChatMessage[]> {
+  if (typeof window === 'undefined') return [];
+  try {
+    const { db } = await import('@/lib/indexeddb');
+    const msgs = await db.chatMessage.orderBy('timestamp').toArray();
+    return msgs.map((m) => ({
+      id: m.id,
+      role: m.role as 'user' | 'assistant' | 'system',
+      content: m.content,
+      timestamp: new Date(m.timestamp),
+      toolUsed: m.toolUsed,
+      thinkingProcess: m.thinkingProcess,
+    }));
+  } catch (err) {
+    console.warn('[Store] Failed to load chat from IndexedDB, trying localStorage fallback:', err);
+    // Fallback: try localStorage migration
+    try {
+      const saved = localStorage.getItem('genuineos_chat');
+      if (saved) {
+        const old = JSON.parse(saved);
+        localStorage.removeItem('genuineos_chat');
+        return old;
+      }
+    } catch { /* ignore */ }
+    return [];
+  }
+}
+
+// Save chat message to IndexedDB
+async function saveChatToIndexedDB(msg: ChatMessage) {
+  if (typeof window === 'undefined') return;
+  try {
+    const { db } = await import('@/lib/indexeddb');
+    await db.chatMessage.put({
+      id: msg.id,
+      role: msg.role,
+      content: msg.content,
+      timestamp: new Date(msg.timestamp).toISOString(),
+      toolUsed: msg.toolUsed,
+      thinkingProcess: msg.thinkingProcess,
+    });
+    // Keep only last 200 messages in IndexedDB to prevent bloat
+    const count = await db.chatMessage.count();
+    if (count > 200) {
+      const oldest = await db.chatMessage.orderBy('timestamp').limit(count - 200).toArray();
+      await db.chatMessage.bulkDelete(oldest.map((m) => m.id));
+    }
+  } catch (err) {
+    console.warn('[Store] Failed to save chat to IndexedDB:', err);
+  }
+}
+
+// Clear all chat messages from IndexedDB
+async function clearChatFromIndexedDB() {
+  if (typeof window === 'undefined') return;
+  try {
+    const { db } = await import('@/lib/indexeddb');
+    await db.chatMessage.clear();
+  } catch (err) {
+    console.warn('[Store] Failed to clear chat from IndexedDB:', err);
+  }
+}
+
 export const useAppStore = create<AppState>((set, get) => ({
   // UI
   activeTab: 'dashboard',
@@ -74,23 +128,17 @@ export const useAppStore = create<AppState>((set, get) => ({
   sidebarOpen: false,
   setSidebarOpen: (open) => set({ sidebarOpen: open }),
 
-  // Chat
-  chatMessages: loadChat(),
+  // Chat — start with empty, load from IndexedDB on mount
+  chatMessages: [],
+  chatLoaded: false,
   addChatMessage: (msg) => {
-    set((s) => {
-      const updated = [...s.chatMessages, msg];
-      // Persist to localStorage (keep last 50)
-      if (typeof window !== 'undefined') {
-        try { localStorage.setItem(CHAT_KEY, JSON.stringify(updated.slice(-50))); } catch { /* ignore */ }
-      }
-      return { chatMessages: updated };
-    });
+    set((s) => ({ chatMessages: [...s.chatMessages, msg] }));
+    // Persist to IndexedDB (async, don't block)
+    saveChatToIndexedDB(msg);
   },
   clearChatMessages: () => {
     set({ chatMessages: [] });
-    if (typeof window !== 'undefined') {
-      try { localStorage.removeItem(CHAT_KEY); } catch { /* ignore */ }
-    }
+    clearChatFromIndexedDB();
   },
   isChatLoading: false,
   setChatLoading: (loading) => set({ isChatLoading: loading }),
@@ -119,3 +167,13 @@ export const useAppStore = create<AppState>((set, get) => ({
   refreshKey: 0,
   refresh: () => set((s) => ({ refreshKey: s.refreshKey + 1 })),
 }));
+
+// ── Chat hydration: load from IndexedDB on first client render ──
+if (typeof window !== 'undefined') {
+  loadChatFromIndexedDB().then((msgs) => {
+    const current = useAppStore.getState();
+    if (!current.chatLoaded) {
+      useAppStore.setState({ chatMessages: msgs, chatLoaded: true });
+    }
+  });
+}
