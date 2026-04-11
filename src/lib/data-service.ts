@@ -164,7 +164,10 @@ export async function fetchData(params: FetchParams): Promise<any> {
 
 export async function createRecord(model: string, data: any, upsert?: boolean): Promise<any> {
   const table = getTable(model);
-  if (!table) throw new Error(`Invalid model: ${model}`);
+  if (!table) {
+    console.error('[createRecord] Invalid model:', model, '- table not found in Dexie DB');
+    throw new Error(`Invalid model: ${model}`);
+  }
 
   const now = nowISO();
   const record = {
@@ -194,13 +197,21 @@ export async function createRecord(model: string, data: any, upsert?: boolean): 
     record.id = 'main';
   }
 
-  await table.put(record);
-  return record;
+  try {
+    await table.put(record);
+    return record;
+  } catch (err) {
+    console.error(`[createRecord] Dexie put() failed for model: ${model}, id: ${record.id}, error:`, err);
+    throw err;
+  }
 }
 
 export async function updateRecord(model: string, id: string, data: any): Promise<any> {
   const table = getTable(model);
-  if (!table) throw new Error(`Invalid model: ${model}`);
+  if (!table) {
+    console.error('[updateRecord] Invalid model:', model, '- table not found in Dexie DB');
+    throw new Error(`Invalid model: ${model}`);
+  }
 
   const updatePayload = {
     ...data,
@@ -210,8 +221,13 @@ export async function updateRecord(model: string, id: string, data: any): Promis
   delete updatePayload.id;
   delete updatePayload.createdAt;
 
-  await table.update(id, updatePayload);
-  return table.get(id);
+  try {
+    await table.update(id, updatePayload);
+    return table.get(id);
+  } catch (err) {
+    console.error(`[updateRecord] Dexie update() failed for model: ${model}, id: ${id}, error:`, err);
+    throw err;
+  }
 }
 
 export async function deleteRecord(model: string, id: string): Promise<any> {

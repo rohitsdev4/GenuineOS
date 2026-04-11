@@ -151,8 +151,9 @@ export default function ReceivablesTab() {
       toast({ title: 'Receivable Added', description: `${addForm.party} - ${formatCurrency(Number(addForm.amount))}` });
       setAddForm({ ...emptyAddForm });
       setAddOpen(false);
-    } catch {
-      toast({ title: 'Error', description: 'Failed to add receivable.', variant: 'destructive' });
+    } catch (err) {
+      console.error('Failed to add receivable:', err);
+      toast({ title: 'Error', description: `Failed to add receivable: ${err instanceof Error ? err.message : 'Unknown error'}`, variant: 'destructive' });
     }
   };
 
@@ -174,8 +175,9 @@ export default function ReceivablesTab() {
       toast({ title: 'Receivable Updated', description: `Status updated to ${updateForm.status}.` });
       setUpdateOpen(false);
       setSelectedItem(null);
-    } catch {
-      toast({ title: 'Error', description: 'Failed to update receivable.', variant: 'destructive' });
+    } catch (err) {
+      console.error('Failed to update receivable:', err);
+      toast({ title: 'Error', description: `Failed to update receivable: ${err instanceof Error ? err.message : 'Unknown error'}`, variant: 'destructive' });
     }
   };
 
@@ -194,8 +196,9 @@ export default function ReceivablesTab() {
       toast({ title: 'Receivable Deleted', description: `Receivable from ${selectedItem.party} has been removed.` });
       setDeleteOpen(false);
       setSelectedItem(null);
-    } catch {
-      toast({ title: 'Error', description: 'Failed to delete receivable.', variant: 'destructive' });
+    } catch (err) {
+      console.error('Failed to delete receivable:', err);
+      toast({ title: 'Error', description: `Failed to delete receivable: ${err instanceof Error ? err.message : 'Unknown error'}`, variant: 'destructive' });
     }
   };
 

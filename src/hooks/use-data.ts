@@ -45,6 +45,9 @@ export function useCreateData() {
       qc.invalidateQueries({ queryKey: ['data', v.model] });
       qc.invalidateQueries({ queryKey: ['summary'] });
     },
+    onError: (err, v) => {
+      console.error('[useCreateData] Failed to create:', v.model, err);
+    },
   });
 }
 
@@ -59,6 +62,9 @@ export function useUpdateData() {
       qc.invalidateQueries({ queryKey: ['data', v.model] });
       qc.invalidateQueries({ queryKey: ['summary'] });
     },
+    onError: (err, v) => {
+      console.error('[useUpdateData] Failed to update:', v.model, v.id, err);
+    },
   });
 }
 
@@ -71,6 +77,9 @@ export function useDeleteData() {
     onSuccess: (_, v) => {
       qc.invalidateQueries({ queryKey: ['data', v.model] });
       qc.invalidateQueries({ queryKey: ['summary'] });
+    },
+    onError: (err, v) => {
+      console.error('[useDeleteData] Failed to delete:', v.model, v.id, err);
     },
   });
 }
@@ -125,10 +134,29 @@ export function useSheetsSync() {
         return { success: true, message: msg, paymentsRemoved, expensesRemoved };
       }
 
+      // If credentials not provided, read from IndexedDB settings
+      let effectiveSheetId = sheetId;
+      let effectiveApiKey = apiKey;
+      if (!effectiveSheetId || !effectiveApiKey) {
+        try {
+          const storedSettings = await getSettings();
+          effectiveSheetId = effectiveSheetId || storedSettings.googleSheetId || '';
+          effectiveApiKey = effectiveApiKey || storedSettings.googleApiKey || '';
+        } catch {
+          // Settings may not be available yet
+        }
+      }
+
+      if (!effectiveSheetId || !effectiveApiKey) {
+        const msg = 'Sheet ID and API Key are required. Please save them in Settings first.';
+        store.setLastSyncResult(msg);
+        return { success: false, error: msg };
+      }
+
       // Server call for Google Sheets API (still needs server for Google API)
       const res = await fetch('/api/sheets', {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ action, sheetId, apiKey }),
+        body: JSON.stringify({ action, sheetId: effectiveSheetId, apiKey: effectiveApiKey }),
       });
       const data = await res.json();
       store.setLastSyncResult(data.message || (data.error || 'Unknown error'));
@@ -142,8 +170,8 @@ export function useSheetsSync() {
 
         // Update settings with sync status
         await dsUpdateSettings({
-          googleSheetId: sheetId || undefined,
-          googleApiKey: apiKey || undefined,
+          googleSheetId: effectiveSheetId || undefined,
+          googleApiKey: effectiveApiKey || undefined,
           googleSheetConnected: true,
           lastSyncAt: new Date().toISOString(),
           lastSyncStatus: 'success',

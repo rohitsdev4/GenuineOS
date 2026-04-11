@@ -165,8 +165,9 @@ export default function ExpensesTab() {
       toast({ title: 'Expense Added', description: `${addForm.title} - ${formatCurrency(Number(addForm.amount))}` });
       setAddForm({ ...emptyForm });
       setAddOpen(false);
-    } catch {
-      toast({ title: 'Error', description: 'Failed to add expense.', variant: 'destructive' });
+    } catch (err) {
+      console.error('Failed to add expense:', err);
+      toast({ title: 'Error', description: `Failed to add expense: ${err instanceof Error ? err.message : 'Unknown error'}`, variant: 'destructive' });
     }
   };
 
@@ -195,8 +196,9 @@ export default function ExpensesTab() {
       toast({ title: 'Expense Updated', description: `${editForm.title} - ${formatCurrency(Number(editForm.amount))}` });
       setEditOpen(false);
       setSelectedItem(null);
-    } catch {
-      toast({ title: 'Error', description: 'Failed to update expense.', variant: 'destructive' });
+    } catch (err) {
+      console.error('Failed to update expense:', err);
+      toast({ title: 'Error', description: `Failed to update expense: ${err instanceof Error ? err.message : 'Unknown error'}`, variant: 'destructive' });
     }
   };
 
@@ -206,8 +208,9 @@ export default function ExpensesTab() {
       toast({ title: 'Expense Deleted', description: `Expense "${selectedItem.title}" has been removed.` });
       setDeleteOpen(false);
       setSelectedItem(null);
-    } catch {
-      toast({ title: 'Error', description: 'Failed to delete expense.', variant: 'destructive' });
+    } catch (err) {
+      console.error('Failed to delete expense:', err);
+      toast({ title: 'Error', description: `Failed to delete expense: ${err instanceof Error ? err.message : 'Unknown error'}`, variant: 'destructive' });
     }
   };
 

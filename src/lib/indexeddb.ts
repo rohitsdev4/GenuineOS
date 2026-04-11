@@ -2,7 +2,12 @@ import Dexie, { type EntityTable } from 'dexie';
 
 // ── Helper: generate UUID-compatible ID (matches Prisma cuid pattern) ──
 export function generateId(): string {
-  return crypto.randomUUID();
+  try {
+    return crypto.randomUUID();
+  } catch {
+    // Fallback for non-secure contexts (HTTP, some PWA environments)
+    return Date.now().toString(36) + Math.random().toString(36).slice(2) + Math.random().toString(36).slice(2);
+  }
 }
 
 // ── Model interfaces matching Prisma schema exactly ──

@@ -895,7 +895,7 @@ export default function SettingsTab() {
                       variant="default"
                       size="sm"
                       onClick={syncDataNow}
-                      disabled={isSyncing || !s.googleSheetConnected}
+                      disabled={isSyncing || (!s.googleSheetConnected && !sheets.sheetId.trim())}
                       className="gap-1.5 bg-emerald-600 hover:bg-emerald-700 text-white"
                     >
                       {isSyncing ? <Loader2 className="size-3.5 animate-spin" /> : <RefreshCw className="size-3.5" />}

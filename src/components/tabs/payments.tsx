@@ -200,8 +200,9 @@ export default function PaymentsTab() {
       toast({ title: 'Payment Added', description: `${addForm.party} - ${formatCurrency(Number(addForm.amount))}` });
       setAddForm({ ...emptyForm });
       setAddOpen(false);
-    } catch {
-      toast({ title: 'Error', description: 'Failed to add payment.', variant: 'destructive' });
+    } catch (err) {
+      console.error('Failed to add payment:', err);
+      toast({ title: 'Error', description: `Failed to add payment: ${err instanceof Error ? err.message : 'Unknown error'}`, variant: 'destructive' });
     }
   };
 
@@ -227,8 +228,9 @@ export default function PaymentsTab() {
       toast({ title: 'Payment Updated', description: `${editForm.party} - ${formatCurrency(Number(editForm.amount))}` });
       setEditOpen(false);
       setSelectedItem(null);
-    } catch {
-      toast({ title: 'Error', description: 'Failed to update payment.', variant: 'destructive' });
+    } catch (err) {
+      console.error('Failed to update payment:', err);
+      toast({ title: 'Error', description: `Failed to update payment: ${err instanceof Error ? err.message : 'Unknown error'}`, variant: 'destructive' });
     }
   };
 
@@ -238,8 +240,9 @@ export default function PaymentsTab() {
       toast({ title: 'Payment Deleted', description: `Payment from ${selectedItem.party} has been removed.` });
       setDeleteOpen(false);
       setSelectedItem(null);
-    } catch {
-      toast({ title: 'Error', description: 'Failed to delete payment.', variant: 'destructive' });
+    } catch (err) {
+      console.error('Failed to delete payment:', err);
+      toast({ title: 'Error', description: `Failed to delete payment: ${err instanceof Error ? err.message : 'Unknown error'}`, variant: 'destructive' });
     }
   };
 

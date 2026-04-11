@@ -294,6 +294,16 @@ function QuickActionDialog({
   onPartnerChange?: (v: string) => void;
 }) {
   const [open, setOpen] = useState(false);
+  const prevLoadingRef = React.useRef(false);
+
+  // Auto-close dialog when loading transitions from true → false (mutation completed)
+  React.useEffect(() => {
+    if (prevLoadingRef.current && !loading && open) {
+      setOpen(false);
+    }
+    prevLoadingRef.current = loading;
+  }, [loading, open]);
+
   const hoverClass = TRIGGER_HOVER_MAP[triggerColor] || 'hover:bg-muted/50';
 
   return (
@@ -332,10 +342,7 @@ function QuickActionDialog({
           <Button
             type="button"
             size="sm"
-            onClick={() => {
-              onSubmit();
-              if (!loading) setOpen(false);
-            }}
+            onClick={() => onSubmit()}
             disabled={loading}
           >
             {loading ? <Loader2 className="h-4 w-4 animate-spin mr-1" /> : null}
@@ -430,6 +437,7 @@ export default function DashboardTab() {
           resetFn();
         },
         onError: (error: Error) => {
+          console.error(`[Dashboard] Failed to create ${model}:`, error);
           toast({ title: 'Error', description: error.message, variant: 'destructive' });
         },
       },
