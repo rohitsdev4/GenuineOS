@@ -1,38 +1,12 @@
-import { NextRequest, NextResponse } from 'next/server';
-import { db } from '@/lib/db';
+import { NextResponse } from 'next/server';
 
-// GET - Get settings (singleton pattern)
+// Stub route — settings are now stored client-side in IndexedDB
+// Kept for backwards compatibility
+
 export async function GET() {
-  try {
-    let settings = await db.appSettings.findFirst();
-    if (!settings) {
-      settings = await db.appSettings.create({ data: {} });
-    }
-    return NextResponse.json(settings);
-  } catch (error: any) {
-    console.error('GET settings error:', error);
-    return NextResponse.json({ error: error.message }, { status: 500 });
-  }
+  return NextResponse.json({ message: 'Settings are now managed client-side via IndexedDB' });
 }
 
-// PUT - Update settings
-export async function PUT(request: NextRequest) {
-  try {
-    const body = await request.json();
-
-    let settings = await db.appSettings.findFirst();
-    if (!settings) {
-      settings = await db.appSettings.create({ data: body });
-    } else {
-      settings = await db.appSettings.update({
-        where: { id: settings.id },
-        data: body,
-      });
-    }
-
-    return NextResponse.json(settings);
-  } catch (error: any) {
-    console.error('PUT settings error:', error);
-    return NextResponse.json({ error: error.message }, { status: 500 });
-  }
+export async function PUT() {
+  return NextResponse.json({ message: 'Settings are now managed client-side via IndexedDB' });
 }

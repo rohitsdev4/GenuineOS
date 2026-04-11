@@ -1,5 +1,4 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { db } from '@/lib/db';
 
 // ── Date normalization helpers ─────────────────────────────────────────
 
@@ -7,133 +6,23 @@ function normalizeDate(d: Date | string | undefined): Date | undefined {
   if (!d) return undefined;
   const date = new Date(d);
   if (isNaN(date.getTime())) return undefined;
-  // Return start of day in local timezone
   return new Date(date.getFullYear(), date.getMonth(), date.getDate());
 }
 
-function dateKey(d: Date | undefined): string {
-  if (!d) return '';
-  const date = new Date(d);
-  const y = date.getFullYear();
-  const m = String(date.getMonth() + 1).padStart(2, '0');
-  const day = String(date.getDate()).padStart(2, '0');
-  return `${y}-${m}-${day}`;
-}
-
-// ── Deduplication utilities ────────────────────────────────────────────
-
-async function deduplicatePayments(): Promise<number> {
-  const all = await db.payment.findMany({ orderBy: { createdAt: 'asc' } });
-  const seen = new Set<string>();
-  const toDelete: string[] = [];
-  for (const p of all) {
-    const key = `${(p.party || '').toLowerCase().trim()}|${p.amount}|${dateKey(p.date)}`;
-    if (seen.has(key)) {
-      toDelete.push(p.id);
-    } else {
-      seen.add(key);
-    }
-  }
-  if (toDelete.length > 0) {
-    await db.payment.deleteMany({ where: { id: { in: toDelete } } });
-  }
-  return toDelete.length;
-}
-
-async function deduplicateExpenses(): Promise<number> {
-  const all = await db.expense.findMany({ orderBy: { createdAt: 'asc' } });
-  const seen = new Set<string>();
-  const toDelete: string[] = [];
-  for (const e of all) {
-    const key = `${(e.title || '').toLowerCase().trim()}|${e.amount}|${dateKey(e.date)}`;
-    if (seen.has(key)) {
-      toDelete.push(e.id);
-    } else {
-      seen.add(key);
-    }
-  }
-  if (toDelete.length > 0) {
-    await db.expense.deleteMany({ where: { id: { in: toDelete } } });
-  }
-  return toDelete.length;
-}
-
-// ── Update site financials after sync ──────────────────────────────────
-
-async function updateSiteFinancials(): Promise<number> {
-  const allSites = await db.site.findMany({ select: { id: true } });
-  let updated = 0;
-
-  for (const site of allSites) {
-    // Sum all payments linked to this site
-    const paymentsAgg = await db.payment.aggregate({
-      where: { siteId: site.id },
-      _sum: { amount: true },
-    });
-
-    // Sum all expenses linked to this site
-    const expensesAgg = await db.expense.aggregate({
-      where: { siteId: site.id },
-      _sum: { amount: true },
-    });
-
-    const totalReceived = paymentsAgg._sum.amount || 0;
-    const totalExpenses = expensesAgg._sum.amount || 0;
-
-    // Read current contractValue to calculate pendingAmount
-    const currentSite = await db.site.findUnique({ where: { id: site.id } });
-    if (!currentSite) continue;
-
-    const pendingAmount = Math.max(0, currentSite.contractValue - totalReceived);
-
-    await db.site.update({
-      where: { id: site.id },
-      data: {
-        receivedAmount: totalReceived,
-        pendingAmount: pendingAmount,
-      },
-    });
-
-    updated++;
-  }
-
-  return updated;
-}
-
-// ── POST - Sheet operations: connect, test, fetch, sync, deduplicate ───
+// ── POST - Sheet operations: connect, test, fetch, sync ───
+// Returns raw data to client for IndexedDB import
 
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
     const { action, sheetId, apiKey } = body;
 
-    let settings = await db.appSettings.findFirst();
-    if (!settings) settings = await db.appSettings.create({ data: {} });
-
-    const sid = sheetId || settings.googleSheetId;
-    const key = apiKey || settings.googleApiKey;
-
-    // Handle deduplicate action (can be called independently)
-    if (action === 'deduplicate') {
-      const paymentsRemoved = await deduplicatePayments();
-      const expensesRemoved = await deduplicateExpenses();
-      return NextResponse.json({
-        success: true,
-        message: `Removed ${paymentsRemoved} duplicate payments and ${expensesRemoved} duplicate expenses`,
-        paymentsRemoved,
-        expensesRemoved,
-      });
-    }
+    const sid = sheetId;
+    const key = apiKey;
 
     if (!sid || !key) {
       return NextResponse.json({ error: 'Sheet ID and API Key are required' }, { status: 400 });
     }
-
-    // Save credentials
-    await db.appSettings.update({
-      where: { id: settings.id },
-      data: { googleSheetId: sid, googleApiKey: key },
-    });
 
     if (action === 'connect' || action === 'test') {
       const url = `https://sheets.googleapis.com/v4/spreadsheets/${sid}?key=${key}`;
@@ -141,22 +30,10 @@ export async function POST(request: NextRequest) {
       if (!res.ok) {
         const err = await res.json();
         const msg = err.error?.message || 'Connection failed';
-        await db.appSettings.update({
-          where: { id: settings.id },
-          data: { googleSheetConnected: false, lastSyncStatus: 'error', lastSyncMessage: msg },
-        });
         return NextResponse.json({ success: false, error: msg });
       }
       const sheetData = await res.json();
       const sheetNames = (sheetData.sheets || []).map((s: any) => s.properties.title);
-      await db.appSettings.update({
-        where: { id: settings.id },
-        data: {
-          googleSheetConnected: true,
-          lastSyncStatus: 'connected',
-          lastSyncMessage: `Connected to "${sheetData.properties?.title || 'Sheet'}" with ${sheetNames.length} sheets`,
-        },
-      });
       return NextResponse.json({ success: true, message: `Connected! Found ${sheetNames.length} sheets`, sheets: sheetNames });
     }
 
@@ -167,11 +44,10 @@ export async function POST(request: NextRequest) {
       const metaData = await metaRes.json();
       const sheetNames = (metaData.sheets || []).map((s: any) => s.properties.title);
 
-      const allData: Record<string, any[]> = {};
-      let totalImported = 0;
+      // Collect all parsed data
+      const sheetData: Record<string, any[]> = {};
       let hasMainSheet = false;
 
-      // First pass: check if a "Main" sheet exists
       for (const sheetName of sheetNames) {
         if (sheetName.toLowerCase() === 'main') {
           hasMainSheet = true;
@@ -179,17 +55,7 @@ export async function POST(request: NextRequest) {
         }
       }
 
-      // ── CLEAN SYNC: Clear existing transactions before importing ──
-      if (action === 'sync') {
-        const deleteResult = await db.$transaction([
-          db.payment.deleteMany({}),
-          db.expense.deleteMany({}),
-        ]);
-        console.log(`[Sync] Cleared ${deleteResult[0].count} payments and ${deleteResult[1].count} expenses before reimport`);
-      }
-
-      // ── Pass 1: Import reference sheets first (sites, labour, parties) ──
-      // This ensures reference data exists before we import transactions that link to them
+      // Fetch all sheets
       for (const sheetName of sheetNames) {
         const range = encodeURIComponent(`${sheetName}!A1:ZZ`);
         const dataUrl = `https://sheets.googleapis.com/v4/spreadsheets/${sid}/values/${range}?key=${key}`;
@@ -197,94 +63,147 @@ export async function POST(request: NextRequest) {
         if (!dataRes.ok) continue;
         const data = await dataRes.json();
         const rows = data.values || [];
-        if (rows.length < 2) { allData[sheetName] = []; continue; }
+        if (rows.length < 2) { sheetData[sheetName] = []; continue; }
 
         const headers = rows[0].map((h: string) => h.toString().toLowerCase().trim());
         const dataRows = rows.slice(1).filter((r: any[]) => r.some((cell: any) => cell !== ''));
-        allData[sheetName] = [{ headers, count: dataRows.length }];
-
-        if (sheetName.toLowerCase() === 'sites' || sheetName.toLowerCase() === 'labour' || sheetName.toLowerCase() === 'parties' || sheetName.toLowerCase() === 'categories') {
-          const imported = await importReferenceSheet(sheetName, headers, dataRows);
-          totalImported += imported;
-        }
+        sheetData[sheetName] = dataRows;
       }
 
-      // ── Pass 2: Import Main sheet (transactions) after reference data is ready ──
+      // Parse into structured records for client-side import
+      const parsedData: any = {
+        sites: [] as any[],
+        labour: [] as any[],
+        clients: [] as any[],
+        payments: [] as any[],
+        expenses: [] as any[],
+      };
+
+      // Parse reference sheets first
       for (const sheetName of sheetNames) {
-        if (sheetName.toLowerCase() !== 'main') continue;
-        if (action !== 'sync') continue;
+        const dataRows = sheetData[sheetName] || [];
+        if (dataRows.length === 0) continue;
 
-        const sheetData = allData[sheetName];
-        if (!sheetData || sheetData.length === 0) continue;
+        const headers = Object.keys(sheetData[sheetName]?.[0] || {}).length > 0
+          ? [] : [];
 
-        const headers = sheetData[0].headers;
-        // Re-fetch data rows from allData (they were stored earlier)
-        const range = encodeURIComponent(`${sheetName}!A1:ZZ`);
-        const dataUrl = `https://sheets.googleapis.com/v4/spreadsheets/${sid}/values/${range}?key=${key}`;
-        const dataRes = await fetch(dataUrl);
-        if (!dataRes.ok) continue;
-        const data = await dataRes.json();
-        const rows = (data.values || []).slice(1).filter((r: any[]) => r.some((cell: any) => cell !== ''));
+        // Re-derive headers from raw data
+        const rawHeaders = await getSheetHeaders(sid, sheetName, key);
+        if (!rawHeaders) continue;
 
-        const imported = await importMainSheet(headers, rows);
-        totalImported += imported;
-      }
-
-      // ── Pass 3: Import other auto-detected sheets (skip payment/expense if Main exists) ──
-      for (const sheetName of sheetNames) {
-        if (sheetName.toLowerCase() === 'main') continue;
-        if (sheetName.toLowerCase() === 'sites' || sheetName.toLowerCase() === 'labour' || sheetName.toLowerCase() === 'parties' || sheetName.toLowerCase() === 'categories') continue;
-
-        const sheetData = allData[sheetName];
-        if (!sheetData || sheetData.length === 0) continue;
-
-        const headers = sheetData[0].headers;
-        const detectedType = detectSheetType(sheetName, headers);
-        if (detectedType && action === 'sync') {
-          // Skip payment/expense auto-detection if Main sheet was processed
-          if ((detectedType === 'payment' || detectedType === 'expense') && hasMainSheet) {
-            continue;
+        if (sheetName.toLowerCase() === 'sites') {
+          const nameIdx = rawHeaders.findIndex((h: string) => h.includes('name') || h.includes('site'));
+          if (nameIdx === -1) continue;
+          for (const row of dataRows) {
+            const name = String(row[nameIdx] || '').trim();
+            if (name) parsedData.sites.push({ name, status: 'active' });
           }
-          // Re-fetch data rows
-          const range = encodeURIComponent(`${sheetName}!A1:ZZ`);
-          const dataUrl = `https://sheets.googleapis.com/v4/spreadsheets/${sid}/values/${range}?key=${key}`;
-          const dataRes = await fetch(dataUrl);
-          if (!dataRes.ok) continue;
-          const data = await dataRes.json();
-          const dataRows = (data.values || []).slice(1).filter((r: any[]) => r.some((cell: any) => cell !== ''));
-
-          const imported = await importSheetData(detectedType, headers, dataRows);
-          totalImported += imported;
+        } else if (sheetName.toLowerCase() === 'labour') {
+          const nameIdx = rawHeaders.findIndex((h: string) => h.includes('name') || h.includes('labour'));
+          if (nameIdx === -1) continue;
+          for (const row of dataRows) {
+            const name = String(row[nameIdx] || '').trim();
+            if (name) parsedData.labour.push({ name, role: 'worker', status: 'active' });
+          }
+        } else if (sheetName.toLowerCase() === 'parties' || sheetName.toLowerCase() === 'clients') {
+          const nameIdx = rawHeaders.findIndex((h: string) => h.includes('name') || h.includes('party'));
+          if (nameIdx === -1) continue;
+          for (const row of dataRows) {
+            const name = String(row[nameIdx] || '').trim();
+            if (name) parsedData.clients.push({ name, type: 'customer', status: 'active' });
+          }
         }
       }
 
-      // ── Update site financials after sync ──
-      let sitesUpdated = 0;
-      if (action === 'sync') {
-        sitesUpdated = await updateSiteFinancials();
+      // Parse Main sheet (transactions)
+      if (hasMainSheet && (action === 'fetch' || action === 'sync')) {
+        const mainRows = sheetData['Main'] || sheetData['main'] || [];
+        if (mainRows.length > 0) {
+          const headers = await getSheetHeaders(sid, 'Main', key);
+          if (headers) {
+            const colIdx = mapMainColumns(headers);
+
+            for (const row of mainRows) {
+              const type = colIdx.type !== undefined ? String(row[colIdx.type] || '').trim() : '';
+              const amountVal = colIdx.amount !== undefined ? row[colIdx.amount] : 0;
+              const amount = parseFloat(String(amountVal || '0').replace(/[,₹]/g, '')) || 0;
+              if (!amount || !type) continue;
+
+              const dateVal = colIdx.date !== undefined ? row[colIdx.date] : null;
+              const date = dateVal ? normalizeDate(dateVal) : new Date();
+              const category = colIdx.category !== undefined ? String(row[colIdx.category] || '').trim() : '';
+              const description = colIdx.description !== undefined ? String(row[colIdx.description] || '').trim() : '';
+              const siteName = colIdx.site !== undefined ? String(row[colIdx.site] || '').trim() : '';
+              const party = colIdx.party !== undefined ? String(row[colIdx.party] || '').trim() : '';
+              const user = colIdx.user !== undefined ? String(row[colIdx.user] || '').trim() : '';
+              const labour = colIdx.labour !== undefined ? String(row[colIdx.labour] || '').trim() : '';
+
+              if (type === 'Payment Received') {
+                parsedData.payments.push({
+                  party: party || 'Unknown',
+                  amount,
+                  date: date ? date.toISOString() : new Date().toISOString(),
+                  mode: 'cash',
+                  category: category !== 'N/A' ? category : 'Payment Received',
+                  siteName: siteName || null,
+                  partner: user || null,
+                  notes: description,
+                });
+              } else if (type === 'Expense') {
+                parsedData.expenses.push({
+                  title: description || category || 'Other',
+                  amount,
+                  date: date ? date.toISOString() : new Date().toISOString(),
+                  category: category !== 'N/A' ? category : 'Other',
+                  paidTo: labour || null,
+                  mode: 'cash',
+                  siteName: siteName || null,
+                  partner: user || null,
+                  notes: description,
+                });
+              }
+            }
+          }
+        }
       }
 
-      const now = new Date();
-      await db.appSettings.update({
-        where: { id: settings.id },
-        data: {
-          lastSyncAt: now,
-          lastSyncStatus: 'success',
-          lastSyncMessage: action === 'sync'
-            ? `Clean sync: ${sheetNames.length} sheets, ${totalImported} records imported, ${sitesUpdated} sites updated`
-            : `Fetched ${sheetNames.length} sheets`,
-        },
-      });
+      // Also parse auto-detected sheets if no Main sheet
+      if (!hasMainSheet && action === 'sync') {
+        for (const sheetName of sheetNames) {
+          const name = sheetName.toLowerCase();
+          if (['main', 'sites', 'labour', 'parties', 'clients', 'categories'].includes(name)) continue;
+
+          const dataRows = sheetData[sheetName] || [];
+          if (dataRows.length === 0) continue;
+
+          const headers = await getSheetHeaders(sid, sheetName, key);
+          if (!headers) continue;
+
+          const detectedType = detectSheetType(sheetName, headers);
+          if (!detectedType) continue;
+
+          if (detectedType === 'payment') {
+            const mapped = parseTransactionSheet(headers, dataRows, 'payment');
+            parsedData.payments.push(...mapped);
+          } else if (detectedType === 'expense') {
+            const mapped = parseTransactionSheet(headers, dataRows, 'expense');
+            parsedData.expenses.push(...mapped);
+          }
+        }
+      }
+
+      const totalRecords = parsedData.payments.length + parsedData.expenses.length +
+        parsedData.sites.length + parsedData.labour.length + parsedData.clients.length;
 
       return NextResponse.json({
         success: true,
         message: action === 'sync'
-          ? `Synced! ${totalImported} records imported from ${sheetNames.length} sheets, ${sitesUpdated} sites financially updated`
+          ? `Fetched ${totalRecords} records from ${sheetNames.length} sheets. Importing to local database...`
           : `Fetched ${sheetNames.length} sheets. Use "Sync" to import data.`,
-        sheets: allData,
-        totalImported,
-        sitesUpdated,
-        cleanSync: action === 'sync',
+        sheets: sheetData,
+        sheetNames,
+        totalRecords,
+        sheetData: parsedData,
       });
     }
 
@@ -295,50 +214,25 @@ export async function POST(request: NextRequest) {
   }
 }
 
-// GET - Sync status
+// GET - Sync status (returns basic info, actual status is now in IndexedDB)
 export async function GET() {
-  try {
-    const settings = await db.appSettings.findFirst();
-    if (!settings) return NextResponse.json({ connected: false });
-    return NextResponse.json({
-      connected: settings.googleSheetConnected,
-      lastSyncAt: settings.lastSyncAt,
-      lastSyncStatus: settings.lastSyncStatus,
-      lastSyncMessage: settings.lastSyncMessage,
-      autoSync: settings.autoSync,
-      syncInterval: settings.syncInterval,
-    });
-  } catch (error: any) {
-    return NextResponse.json({ error: error.message }, { status: 500 });
-  }
+  return NextResponse.json({ connected: false, message: 'Sync status is now managed client-side via IndexedDB' });
 }
 
-function detectSheetType(sheetName: string, headers: string[]): string | null {
-  const name = sheetName.toLowerCase();
-  const h = headers.join(' ');
-  // Only detect non-transaction sheet types here
-  // Payment/expense detection is skipped when Main sheet exists
-  if (name.includes('client') || name.includes('party') || name.includes('customer') || (h.includes('name') && h.includes('phone'))) return 'client';
-  if (name.includes('site') || name.includes('project') || name.includes('work')) return 'site';
-  if (name.includes('labour') || name.includes('worker') || name.includes('employee') || (h.includes('name') && (h.includes('wage') || h.includes('salary')))) return 'labour';
-  if (name.includes('receivable') || name.includes('due') || name.includes('pending')) return 'receivable';
-  if (name.includes('task') || name.includes('todo')) return 'task';
-  // Only detect payment/expense sheets if the sheet name is very explicit
-  // (avoids false positives from sheets that have amount columns)
-  if (name.includes('payment') || name.includes('received') || name.includes('income')) return 'payment';
-  if (name.includes('expense') || name.includes('spent') || name.includes('cost')) return 'expense';
-  return null;
+// ── Helper functions ──
+
+async function getSheetHeaders(sheetId: string, sheetName: string, apiKey: string): Promise<string[] | null> {
+  const range = encodeURIComponent(`${sheetName}!A1:1`);
+  const url = `https://sheets.googleapis.com/v4/spreadsheets/${sheetId}/values/${range}?key=${apiKey}`;
+  const res = await fetch(url);
+  if (!res.ok) return null;
+  const data = await res.json();
+  return (data.values?.[0] || []).map((h: string) => h.toString().toLowerCase().trim());
 }
 
-// Import Main sheet (business transactions with Expense/Payment Received)
-// In clean sync mode, no dedup check is needed since we cleared all records first
-async function importMainSheet(headers: string[], rows: any[][]): Promise<number> {
-  let imported = 0;
-  const h = headers.map(x => x.toLowerCase().trim());
-
-  // Map column indices
+function mapMainColumns(headers: string[]): Record<string, number> {
   const colIdx: Record<string, number> = {};
-  h.forEach((val, i) => {
+  headers.forEach((val, i) => {
     if (val === 'date') colIdx.date = i;
     if (val === 'type') colIdx.type = i;
     if (val === 'amount') colIdx.amount = i;
@@ -350,242 +244,75 @@ async function importMainSheet(headers: string[], rows: any[][]): Promise<number
     if (val === 'user') colIdx.user = i;
     if (val === 'chatid') colIdx.chatId = i;
   });
-
-  // Get or create managers
-  const managers: Record<string, string> = {};
-  for (const name of ['Gulshan', 'Rohit']) {
-    let m = await db.manager.findFirst({ where: { name } });
-    if (!m) m = await db.manager.create({ data: { name, role: 'partner', status: 'active' } });
-    managers[name] = m.id;
-  }
-
-  // Get all sites for mapping
-  const allSites = await db.site.findMany({ select: { id: true, name: true } });
-  const siteMap: Record<string, string> = {};
-  allSites.forEach(s => { siteMap[s.name.toLowerCase()] = s.id; });
-
-  // Get all clients for mapping (to link payments to clients)
-  const allClients = await db.client.findMany({ select: { id: true, name: true } });
-  const clientMap: Record<string, string> = {};
-  allClients.forEach(c => { clientMap[c.name.toLowerCase()] = c.id; });
-
-  const BATCH_SIZE = 50;
-
-  for (let i = 0; i < rows.length; i += BATCH_SIZE) {
-    const batch = rows.slice(i, i + BATCH_SIZE);
-
-    await db.$transaction(async (tx: any) => {
-      for (const row of batch) {
-        try {
-          const type = colIdx.type !== undefined ? String(row[colIdx.type] || '').trim() : '';
-          const amountVal = colIdx.amount !== undefined ? row[colIdx.amount] : 0;
-          const amount = parseFloat(String(amountVal || '0').replace(/[,₹]/g, '')) || 0;
-          if (!amount || !type) continue;
-
-          const dateVal = colIdx.date !== undefined ? row[colIdx.date] : null;
-          const date = normalizeDate(dateVal);
-
-          const category = colIdx.category !== undefined ? String(row[colIdx.category] || '').trim() : '';
-          const description = colIdx.description !== undefined ? String(row[colIdx.description] || '').trim() : '';
-          const labour = colIdx.labour !== undefined ? String(row[colIdx.labour] || '').trim() : '';
-          const siteName = colIdx.site !== undefined ? String(row[colIdx.site] || '').trim() : '';
-          const party = colIdx.party !== undefined ? String(row[colIdx.party] || '').trim() : '';
-          const user = colIdx.user !== undefined ? String(row[colIdx.user] || '').trim() : '';
-
-          const managerId = user && managers[user] ? managers[user] : null;
-          const partner = user || null;
-          const siteId = siteName ? siteMap[siteName.toLowerCase()] || null : null;
-
-          // Client matching: try exact match, then case-insensitive
-          let clientId: string | null = null;
-          if (party) {
-            clientId = clientMap[party.toLowerCase()] || null;
-            if (!clientId) {
-              const lowerParty = party.toLowerCase();
-              for (const [key, val] of Object.entries(clientMap)) {
-                if (key === lowerParty) { clientId = val; break; }
-              }
-            }
-          }
-
-          if (type === 'Payment Received') {
-            await tx.payment.create({
-              data: {
-                party: party || 'Unknown',
-                amount,
-                date: date || new Date(),
-                mode: 'cash',
-                category: category !== 'N/A' ? category : 'Payment Received',
-                siteId,
-                clientId,
-                managerId,
-                partner,
-                notes: description,
-              },
-            });
-            imported++;
-          } else if (type === 'Expense') {
-            await tx.expense.create({
-              data: {
-                title: description || category || 'Other',
-                amount,
-                date: date || new Date(),
-                category: category !== 'N/A' ? category : 'Other',
-                paidTo: labour || null,
-                mode: 'cash',
-                siteId,
-                managerId,
-                partner,
-                notes: description,
-              },
-            });
-            imported++;
-          }
-        } catch (e) {
-          // Skip row on error
-        }
-      }
-    });
-  }
-
-  return imported;
+  return colIdx;
 }
 
-// Import reference sheets (Sites, Labour, Parties, Categories)
-async function importReferenceSheet(sheetName: string, headers: string[], rows: any[][]): Promise<number> {
-  let imported = 0;
-  const h = headers.map(x => x.toLowerCase().trim());
-  const nameIdx = h.findIndex(x => x.includes('name') || x.includes('site') || x.includes('labour') || x.includes('party') || x.includes('category'));
-
-  if (nameIdx === -1) return 0;
-
-  for (const row of rows) {
-    try {
-      const name = String(row[nameIdx] || '').trim();
-      if (!name) continue;
-
-      if (sheetName.toLowerCase() === 'sites') {
-        const dup = await db.site.findFirst({ where: { name } });
-        if (!dup) {
-          await db.site.create({ data: { name, status: 'active' } });
-          imported++;
-        }
-      } else if (sheetName.toLowerCase() === 'labour') {
-        const dup = await db.labour.findFirst({ where: { name } });
-        if (!dup) {
-          await db.labour.create({ data: { name, role: 'worker', status: 'active' } });
-          imported++;
-        }
-      } else if (sheetName.toLowerCase() === 'parties' || sheetName.toLowerCase() === 'clients') {
-        const dup = await db.client.findFirst({ where: { name } });
-        if (!dup) {
-          await db.client.create({ data: { name, type: 'customer', status: 'active' } });
-          imported++;
-        }
-      } else if (sheetName.toLowerCase() === 'categories') {
-        // Categories are just stored as reference data in expenses, no separate model
-        imported++;
-      }
-    } catch {
-      // Skip
-    }
-  }
-  return imported;
+function detectSheetType(sheetName: string, headers: string[]): string | null {
+  const name = sheetName.toLowerCase();
+  const h = headers.join(' ');
+  if (name.includes('client') || name.includes('party') || name.includes('customer')) return 'client';
+  if (name.includes('site') || name.includes('project') || name.includes('work')) return 'site';
+  if (name.includes('labour') || name.includes('worker') || name.includes('employee')) return 'labour';
+  if (name.includes('payment') || name.includes('received') || name.includes('income')) return 'payment';
+  if (name.includes('expense') || name.includes('spent') || name.includes('cost')) return 'expense';
+  return null;
 }
 
-const HEADER_MAPS: Record<string, Record<string, string>> = {
-  payment: {
-    party: 'party', name: 'party', from: 'party', client: 'client',
+function parseTransactionSheet(headers: string[], rows: any[][], type: 'payment' | 'expense'): any[] {
+  const results: any[] = [];
+
+  const paymentHeaderMap: Record<string, string> = {
+    party: 'party', name: 'party', from: 'party',
     amount: 'amount', received: 'amount', total: 'amount', rupees: 'amount',
     date: 'date', 'payment date': 'date',
-    mode: 'mode', method: 'mode', type: 'type',
-    reference: 'reference', ref: 'reference', utr: 'reference', 'transaction id': 'reference',
+    mode: 'mode', method: 'mode',
+    reference: 'reference', ref: 'reference', utr: 'reference',
     notes: 'notes', remark: 'notes', description: 'notes',
     category: 'category', head: 'category',
     partner: 'partner', user: 'partner',
-  },
-  expense: {
+  };
+
+  const expenseHeaderMap: Record<string, string> = {
     title: 'title', description: 'title', item: 'title', particular: 'title', expense: 'title',
     amount: 'amount', rupees: 'amount', total: 'amount', cost: 'amount',
     date: 'date', 'expense date': 'date',
     category: 'category', head: 'category', type: 'category',
-    paidto: 'paidTo', 'paid to': 'paidTo', vendor: 'paidTo', supplier: 'paidTo', labour: 'paidTo',
+    paidto: 'paidTo', 'paid to': 'paidTo', vendor: 'paidTo', supplier: 'paidTo',
     mode: 'mode', method: 'mode',
-    billno: 'billNo', 'bill no': 'billNo', 'bill number': 'billNo', invoice: 'billNo',
+    billno: 'billNo', 'bill no': 'billNo',
     notes: 'notes', remark: 'notes',
     partner: 'partner', user: 'partner',
-    site: 'siteId',
-  },
-  client: {
-    name: 'name', client: 'name', party: 'name', customer: 'name',
-    phone: 'phone', mobile: 'phone', contact: 'phone', number: 'phone',
-    email: 'email', mail: 'email',
-    address: 'address', location: 'address',
-    gst: 'gstNumber', gstno: 'gstNumber', 'gst number': 'gstNumber',
-    type: 'type', category: 'type',
-  },
-};
+    site: 'siteName',
+  };
 
-async function importSheetData(type: string, headers: string[], rows: any[][]): Promise<number> {
-  const headerMap = HEADER_MAPS[type] || {};
-  let imported = 0;
+  const headerMap = type === 'payment' ? paymentHeaderMap : expenseHeaderMap;
   const fieldMap: Record<number, string> = {};
   headers.forEach((h, i) => {
-    const n = h.toLowerCase().trim();
-    if (headerMap[n]) fieldMap[i] = headerMap[n];
+    if (headerMap[h]) fieldMap[i] = headerMap[h];
   });
 
-  // Get managers for partner mapping
-  const managers = await db.manager.findMany({ where: { role: 'partner' } });
-  const managerMap: Record<string, string> = {};
-  managers.forEach(m => { managerMap[m.name] = m.id; });
-
   for (const row of rows) {
-    try {
-      const record: any = {};
-      for (const [ci, fn] of Object.entries(fieldMap)) {
-        const val = row[parseInt(ci)];
-        if (val !== undefined && val !== '') {
-          if (fn === 'amount') record[fn] = parseFloat(String(val).replace(/[,₹]/g, '')) || 0;
-          else if (fn === 'date') record[fn] = normalizeDate(val);
-          else record[fn] = String(val).trim();
+    const record: any = {};
+    for (const [ci, fn] of Object.entries(fieldMap)) {
+      const val = row[parseInt(ci)];
+      if (val !== undefined && val !== '') {
+        if (fn === 'amount') record[fn] = parseFloat(String(val).replace(/[,₹]/g, '')) || 0;
+        else if (fn === 'date') {
+          const d = normalizeDate(val);
+          record[fn] = d ? d.toISOString() : new Date().toISOString();
         }
+        else record[fn] = String(val).trim();
       }
+    }
 
-      // Add partner mapping from managerId or partner field
-      if (record.partner && managerMap[record.partner]) {
-        record.managerId = managerMap[record.partner];
-      }
+    if (type === 'payment' && (!record.party || !record.amount)) continue;
+    if (type === 'expense' && (!record.title || !record.amount)) continue;
 
-      if (type === 'payment' && (!record.party || !record.amount)) continue;
-      if (type === 'expense' && (!record.title || !record.amount)) continue;
-      if (type === 'client' && !record.name) continue;
+    record.mode = record.mode || 'cash';
+    if (!record.date) record.date = new Date().toISOString();
 
-      switch (type) {
-        case 'payment': {
-          // Clean sync - no dedup check needed
-          if (record.party && record.amount) {
-            await db.payment.create({ data: record });
-            imported++;
-          }
-          break;
-        }
-        case 'expense': {
-          // Clean sync - no dedup check needed
-          if (record.title && record.amount) {
-            await db.expense.create({ data: record });
-            imported++;
-          }
-          break;
-        }
-        case 'client': {
-          const dup = await db.client.findFirst({ where: { name: record.name } });
-          if (!dup) { await db.client.create({ data: record }); imported++; }
-          break;
-        }
-        default: imported++;
-      }
-    } catch { /* skip row */ }
+    results.push(record);
   }
-  return imported;
+
+  return results;
 }

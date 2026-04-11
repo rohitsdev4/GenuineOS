@@ -2,6 +2,18 @@
 
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useAppStore } from '@/stores/app-store';
+import {
+  fetchData as dsFetchData,
+  createRecord,
+  updateRecord,
+  deleteRecord,
+  getSummary,
+  getSettings,
+  updateSettings as dsUpdateSettings,
+  deduplicatePayments,
+  deduplicateExpenses,
+  importSheetData,
+} from '@/lib/data-service';
 
 interface FetchParams {
   model: string; id?: string; page?: number; limit?: number;
@@ -13,32 +25,12 @@ interface FetchParams {
 }
 
 export function useFetchData(params: FetchParams) {
-  const sp = new URLSearchParams();
-  sp.set('model', params.model);
-  if (params.id) sp.set('id', params.id);
-  if (params.page) sp.set('page', String(params.page));
-  if (params.limit) sp.set('limit', String(params.limit));
-  if (params.search) sp.set('search', params.search);
-  if (params.sortBy) sp.set('sortBy', params.sortBy);
-  if (params.sortOrder) sp.set('sortOrder', params.sortOrder);
-  if (params.include) sp.set('include', params.include);
-  if (params.filterField) sp.set('filterField', params.filterField);
-  if (params.filterValue) sp.set('filterValue', params.filterValue);
-  if (params.filterField2) sp.set('filterField2', params.filterField2);
-  if (params.filterValue2) sp.set('filterValue2', params.filterValue2);
-  if (params.summary) sp.set('summary', 'true');
-  if (params.countByStatus) sp.set('countByStatus', 'true');
-  if (params.statusField) sp.set('statusField', params.statusField);
-  if (params.categoryBreakdown) sp.set('categoryBreakdown', 'true');
-
   return useQuery({
     queryKey: ['data', params.model, params.id, params.page, params.search, params.filterField, params.filterValue, params.filterField2, params.filterValue2, params.summary, params.categoryBreakdown],
     queryFn: async () => {
-      const res = await fetch(`/api/data?${sp.toString()}`);
-      if (!res.ok) throw new Error('Failed to fetch');
-      return res.json();
+      return dsFetchData(params);
     },
-    staleTime: 10000, // 10s stale time for speed
+    staleTime: 10000,
   });
 }
 
@@ -47,12 +39,7 @@ export function useCreateData() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: async ({ model, data, upsert }: { model: string; data: any; upsert?: boolean }) => {
-      const res = await fetch('/api/data', {
-        method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ model, data, upsert }),
-      });
-      if (!res.ok) { const e = await res.json(); throw new Error(e.error || 'Create failed'); }
-      return res.json();
+      return createRecord(model, data, upsert);
     },
     onSuccess: (_, v) => {
       qc.invalidateQueries({ queryKey: ['data', v.model] });
@@ -66,12 +53,7 @@ export function useUpdateData() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: async ({ model, id, data }: { model: string; id: string; data: any }) => {
-      const res = await fetch('/api/data', {
-        method: 'PUT', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ model, id, data }),
-      });
-      if (!res.ok) { const e = await res.json(); throw new Error(e.error || 'Update failed'); }
-      return res.json();
+      return updateRecord(model, id, data);
     },
     onSuccess: (_, v) => {
       qc.invalidateQueries({ queryKey: ['data', v.model] });
@@ -84,9 +66,7 @@ export function useDeleteData() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: async ({ model, id }: { model: string; id: string }) => {
-      const res = await fetch(`/api/data?model=${model}&id=${id}`, { method: 'DELETE' });
-      if (!res.ok) { const e = await res.json(); throw new Error(e.error || 'Delete failed'); }
-      return res.json();
+      return deleteRecord(model, id);
     },
     onSuccess: (_, v) => {
       qc.invalidateQueries({ queryKey: ['data', v.model] });
@@ -99,9 +79,7 @@ export function useDashboardSummary() {
   return useQuery({
     queryKey: ['summary'],
     queryFn: async () => {
-      const res = await fetch('/api/data?model=payment&summary=true');
-      if (!res.ok) throw new Error('Failed');
-      return res.json();
+      return getSummary();
     },
     refetchInterval: 15000,
     staleTime: 5000,
@@ -113,23 +91,17 @@ export function useSettings() {
   const query = useQuery({
     queryKey: ['settings'],
     queryFn: async () => {
-      const res = await fetch('/api/settings');
-      if (!res.ok) throw new Error('Failed');
-      return res.json();
+      return getSettings();
     },
     staleTime: 30000,
   });
-  const updateSettings = useMutation({
+  const updateSettingsMutation = useMutation({
     mutationFn: async (data: any) => {
-      const res = await fetch('/api/settings', {
-        method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(data),
-      });
-      if (!res.ok) throw new Error('Failed');
-      return res.json();
+      return dsUpdateSettings(data);
     },
     onSuccess: (data) => { qc.setQueryData(['settings'], data); },
   });
-  return { ...query, updateSettings: updateSettings.mutate, isUpdating: updateSettings.isPending };
+  return { ...query, updateSettings: updateSettingsMutation.mutate, isUpdating: updateSettingsMutation.isPending };
 }
 
 export function useSheetsSync() {
@@ -140,18 +112,57 @@ export function useSheetsSync() {
     store.setIsSyncing(true);
     store.setLastSyncResult(null);
     try {
+      // Handle deduplicate client-side
+      if (action === 'deduplicate') {
+        const [paymentsRemoved, expensesRemoved] = await Promise.all([
+          deduplicatePayments(),
+          deduplicateExpenses(),
+        ]);
+        const msg = `Removed ${paymentsRemoved} duplicate payments and ${expensesRemoved} duplicate expenses`;
+        store.setLastSyncResult(msg);
+        qc.invalidateQueries({ queryKey: ['summary'] });
+        qc.invalidateQueries({ queryKey: ['data'] });
+        return { success: true, message: msg, paymentsRemoved, expensesRemoved };
+      }
+
+      // Server call for Google Sheets API (still needs server for Google API)
       const res = await fetch('/api/sheets', {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ action, sheetId, apiKey }),
       });
       const data = await res.json();
       store.setLastSyncResult(data.message || (data.error || 'Unknown error'));
+
+      if (data.success && data.sheetData) {
+        // Import the raw sheet data into IndexedDB
+        const { totalImported, sitesUpdated } = await importSheetData({
+          ...data.sheetData,
+          cleanSync: action === 'sync',
+        });
+
+        // Update settings with sync status
+        await dsUpdateSettings({
+          googleSheetId: sheetId || undefined,
+          googleApiKey: apiKey || undefined,
+          googleSheetConnected: true,
+          lastSyncAt: new Date().toISOString(),
+          lastSyncStatus: 'success',
+          lastSyncMessage: `Synced! ${totalImported} records imported, ${sitesUpdated} sites updated`,
+        });
+
+        qc.invalidateQueries({ queryKey: ['summary'] });
+        qc.invalidateQueries({ queryKey: ['settings'] });
+        qc.invalidateQueries({ queryKey: ['data'] });
+
+        return { ...data, totalImported, sitesUpdated };
+      }
+
       if (data.success) {
         qc.invalidateQueries({ queryKey: ['summary'] });
         qc.invalidateQueries({ queryKey: ['settings'] });
-        // Invalidate all data queries after sync/deduplicate
         qc.invalidateQueries({ queryKey: ['data'] });
       }
+
       return data;
     } catch (e: any) {
       store.setLastSyncResult(e.message);
@@ -166,6 +177,7 @@ export function useSheetsSync() {
 
 export function useChat() {
   const store = useAppStore();
+  const qc = useQueryClient();
 
   const sendMessage = async (message: string) => {
     store.setChatLoading(true);
@@ -183,10 +195,142 @@ export function useChat() {
       });
       if (!res.ok) throw new Error('Failed');
       const data = await res.json();
-      store.addChatMessage({
-        id: crypto.randomUUID(), role: 'assistant', content: data.response,
-        timestamp: new Date(), toolUsed: data.toolUsed, thinkingProcess: data.thinkingProcess,
-      });
+
+      // Handle tool calls from server — execute client-side
+      if (data.toolCall && data.toolCall.tool && data.toolCall.params) {
+        const { createRecord: cr, updateRecord: ur, deleteRecord: dr, fetchData: fd } = await import('@/lib/data-service');
+
+        // Execute the tool client-side
+        let toolResult: any = null;
+        try {
+          const tool = data.toolCall.tool;
+          const params = data.toolCall.params;
+
+          switch (tool) {
+            case 'ADD_PAYMENT':
+              toolResult = await cr('payment', {
+                party: params.party,
+                amount: parseFloat(params.amount),
+                date: params.date ? new Date(params.date).toISOString() : new Date().toISOString(),
+                mode: params.mode || 'cash',
+                category: params.category,
+                notes: params.notes,
+                siteId: params.siteId,
+                reference: params.reference,
+                managerId: params.managerId,
+              });
+              break;
+            case 'ADD_EXPENSE':
+              toolResult = await cr('expense', {
+                title: params.title,
+                amount: parseFloat(params.amount),
+                date: params.date ? new Date(params.date).toISOString() : new Date().toISOString(),
+                category: params.category || 'general',
+                paidTo: params.paidTo,
+                mode: params.mode || 'cash',
+                notes: params.notes,
+                siteId: params.siteId,
+                billNo: params.billNo,
+                managerId: params.managerId,
+              });
+              break;
+            case 'ADD_RECEIVABLE':
+              toolResult = await cr('receivable', {
+                party: params.party,
+                amount: parseFloat(params.amount),
+                dueDate: params.dueDate ? new Date(params.dueDate).toISOString() : null,
+                description: params.description,
+                priority: params.priority || 'medium',
+                notes: params.notes,
+              });
+              break;
+            case 'UPDATE_RECEIVABLE':
+              toolResult = await ur('receivable', params.id, {
+                receivedAmount: params.receivedAmount !== undefined ? parseFloat(params.receivedAmount) : undefined,
+                status: params.status,
+                notes: params.notes,
+              });
+              break;
+            case 'ADD_TASK':
+              toolResult = await cr('task', {
+                title: params.title,
+                description: params.description,
+                priority: params.priority || 'medium',
+                dueDate: params.dueDate ? new Date(params.dueDate).toISOString() : null,
+                tags: params.tags,
+                siteId: params.siteId,
+              });
+              break;
+            case 'UPDATE_TASK': {
+              const upd: any = {};
+              if (params.status) upd.status = params.status;
+              if (params.priority) upd.priority = params.priority;
+              if (params.status === 'completed') upd.completedAt = new Date().toISOString();
+              toolResult = await ur('task', params.id, upd);
+              break;
+            }
+            case 'ADD_SITE':
+              toolResult = await cr('site', {
+                name: params.name,
+                location: params.location,
+                contractValue: params.contractValue ? parseFloat(params.contractValue) : 0,
+                pendingAmount: params.contractValue ? parseFloat(params.contractValue) : 0,
+                contractor: params.contractor,
+                startDate: params.startDate ? new Date(params.startDate).toISOString() : null,
+                notes: params.notes,
+              });
+              break;
+            case 'ADD_LABOUR':
+              toolResult = await cr('labour', {
+                name: params.name,
+                role: params.role || 'worker',
+                phone: params.phone,
+                dailyWage: params.dailyWage ? parseFloat(params.dailyWage) : 0,
+                siteId: params.siteId,
+                notes: params.notes,
+              });
+              break;
+            case 'ADD_CLIENT':
+              toolResult = await cr('client', {
+                name: params.name,
+                phone: params.phone,
+                email: params.email,
+                address: params.address,
+                gstNumber: params.gstNumber,
+                type: params.type || 'customer',
+              });
+              break;
+            case 'ADD_NOTE':
+              toolResult = await cr('note', {
+                title: params.title,
+                content: params.content,
+                category: params.category || 'general',
+              });
+              break;
+            case 'DELETE_RECORD':
+              toolResult = await dr(params.type, params.id);
+              break;
+          }
+
+          // Invalidate react-query cache after mutation
+          if (toolResult) {
+            qc.invalidateQueries({ queryKey: ['data'] });
+            qc.invalidateQueries({ queryKey: ['summary'] });
+          }
+        } catch (toolErr: any) {
+          console.error('Tool execution error:', toolErr);
+        }
+
+        store.addChatMessage({
+          id: crypto.randomUUID(), role: 'assistant', content: data.response,
+          timestamp: new Date(), toolUsed: true, toolResult,
+        });
+      } else {
+        store.addChatMessage({
+          id: crypto.randomUUID(), role: 'assistant', content: data.response,
+          timestamp: new Date(), toolUsed: data.toolUsed, thinkingProcess: data.thinkingProcess,
+        });
+      }
     } catch (e: any) {
       store.addChatMessage({ id: crypto.randomUUID(), role: 'assistant', content: `Error: ${e.message}`, timestamp: new Date() });
     } finally {
