@@ -110,7 +110,7 @@ export function useSettings() {
     },
     onSuccess: (data) => { qc.setQueryData(['settings'], data); },
   });
-  return { ...query, updateSettings: updateSettingsMutation.mutate, isUpdating: updateSettingsMutation.isPending };
+  return { ...query, updateSettings: updateSettingsMutation.mutateAsync, isUpdating: updateSettingsMutation.isPending };
 }
 
 export function useSheetsSync() {

@@ -522,12 +522,21 @@ export async function importSheetData(sheetData: {
   }
 
   // Import transactions
+  // Build siteName → siteId lookup map first
+  const allSitesForMap = await db.site.toArray();
+  const siteNameToId: Record<string, string> = {};
+  for (const site of allSitesForMap) {
+    siteNameToId[site.name.toLowerCase().trim()] = site.id;
+  }
+
   if (sheetData.payments && sheetData.payments.length > 0) {
     const paymentRecords = sheetData.payments.map(p => ({
       ...p,
       id: p.id || generateId(),
       amount: Number(p.amount) || 0,
       mode: p.mode || 'cash',
+      // Resolve siteName → siteId
+      siteId: p.siteId || (p.siteName ? siteNameToId[String(p.siteName).toLowerCase().trim()] || null : null),
       createdAt: p.createdAt || nowISO(),
       updatedAt: nowISO(),
     }));
@@ -542,6 +551,8 @@ export async function importSheetData(sheetData: {
       amount: Number(e.amount) || 0,
       mode: e.mode || 'cash',
       category: e.category || 'general',
+      // Resolve siteName → siteId
+      siteId: e.siteId || (e.siteName ? siteNameToId[String(e.siteName).toLowerCase().trim()] || null : null),
       createdAt: e.createdAt || nowISO(),
       updatedAt: nowISO(),
     }));

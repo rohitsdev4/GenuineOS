@@ -1,13 +1,8 @@
-import { PrismaClient } from '@prisma/client'
-
-const globalForPrisma = globalThis as unknown as {
-  prisma: PrismaClient | undefined
-}
-
-export const db =
-  globalForPrisma.prisma ??
-  new PrismaClient({
-    log: [],
-  })
-
-if (process.env.NODE_ENV !== 'production') globalForPrisma.prisma = db
+// Re-export everything from indexeddb.ts
+// db.ts is kept for backwards compatibility only
+export { db, generateId, nowISO, toISO, createDefaultSettings, getTable } from './indexeddb';
+export type {
+  AppSettings, Manager, Client, Site, Payment, SitePayment,
+  Expense, Receivable, Task, Labour, LabourPayment, Attendance,
+  ExtraWork, Note, Habit, HabitLog
+} from './indexeddb';

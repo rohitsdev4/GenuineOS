@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import {
   IndianRupee, Receipt, Wallet, CreditCard, TrendingDown, TrendingUp,
   ListTodo, HandCoins, Scale, Building2, RefreshCw, Loader2, AlertTriangle,
@@ -294,10 +294,10 @@ function QuickActionDialog({
   onPartnerChange?: (v: string) => void;
 }) {
   const [open, setOpen] = useState(false);
-  const prevLoadingRef = React.useRef(false);
+  const prevLoadingRef = useRef(false);
 
   // Auto-close dialog when loading transitions from true → false (mutation completed)
-  React.useEffect(() => {
+  useEffect(() => {
     if (prevLoadingRef.current && !loading && open) {
       setOpen(false);
     }

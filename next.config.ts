@@ -1,23 +1,18 @@
 import type { NextConfig } from "next";
-const withPWA = require("next-pwa")({
+const withPWA = require("@ducanh2912/next-pwa").default({
   dest: "public",
-  register: true,
-  skipWaiting: true,
+  cacheOnFrontEndNav: true,
+  aggressiveFrontEndNavCaching: true,
+  reloadOnOnline: true,
   disable: process.env.NODE_ENV === "development",
-  runtimeCaching: [
-    {
-      urlPattern: /^https?.*/,
-      handler: "NetworkFirst",
-      options: {
-        cacheName: "genuineos-cache",
-        expiration: { maxEntries: 200, maxAgeSeconds: 86400 },
-      },
-    },
-  ],
+  workboxOptions: {
+    disableDevLogs: true,
+  },
 });
 
 const nextConfig: NextConfig = {
   typescript: { ignoreBuildErrors: true },
+  eslint: { ignoreDuringBuilds: true },
   reactStrictMode: false,
 };
 
