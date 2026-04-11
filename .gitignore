@@ -59,3 +59,10 @@ scripts/
 dev.log
 db/custom.db
 worklog.md
+
+# PWA generated files
+public/workbox-*.js
+public/workbox-*.js.map
+public/sw.js
+public/sw.js.map
+public/swe-worker-*.js

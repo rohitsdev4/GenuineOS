@@ -120,10 +120,45 @@
     @apply bg-background text-foreground;
     margin: 0;
     overflow: hidden;
+    overscroll-behavior: none;
+    user-select: none;
+    -webkit-user-select: none;
   }
   html {
     /* Use dynamic viewport height for mobile browsers */
     height: 100dvh;
     height: -webkit-fill-available;
+    overscroll-behavior: none;
+    -webkit-tap-highlight-color: transparent;
+    -webkit-touch-callout: none;
+  }
+
+  /* Smooth scrolling like native app */
+  * {
+    scroll-behavior: smooth;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  /* Hide scrollbars but keep scroll functional */
+  ::-webkit-scrollbar {
+    display: none;
+  }
+  * {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+  }
+
+  /* Prevent text selection on interactive elements */
+  button, a, [role="button"] {
+    user-select: none;
+    -webkit-user-select: none;
+    cursor: pointer;
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  /* Allow text selection in inputs and textareas */
+  input, textarea, [contenteditable="true"] {
+    user-select: text;
+    -webkit-user-select: text;
   }
 }

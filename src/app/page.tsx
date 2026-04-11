@@ -43,6 +43,7 @@ import {
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useToast } from '@/hooks/use-toast';
+import { BottomNav } from '@/components/bottom-nav';
 
 // ── Lazy Tab Imports (fast initial load) ──────────────────────────────
 const DashboardTab = lazy(() => import('@/components/tabs/dashboard'));
@@ -395,7 +396,7 @@ export default function Home() {
                 animate={{ opacity: 1 }}
                 exit={{ opacity: 0 }}
                 transition={{ duration: 0.08 }}
-                className="p-4 pb-24 md:p-6 md:pb-16"
+                className="p-4 pb-28 md:p-6 md:pb-16"
               >
                 <ActiveTabComponent />
               </motion.div>
@@ -403,6 +404,9 @@ export default function Home() {
           </Suspense>
         </main>
       </div>
+
+      {/* ── Mobile Bottom Navigation ── */}
+      <BottomNav />
     </div>
   );
 }
