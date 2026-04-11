@@ -136,7 +136,7 @@ export function useSheetsSync() {
   const store = useAppStore();
   const qc = useQueryClient();
 
-  const syncSheets = async (action: 'connect' | 'test' | 'fetch' | 'sync', sheetId?: string, apiKey?: string) => {
+  const syncSheets = async (action: 'connect' | 'test' | 'fetch' | 'sync' | 'deduplicate', sheetId?: string, apiKey?: string) => {
     store.setIsSyncing(true);
     store.setLastSyncResult(null);
     try {
@@ -149,7 +149,7 @@ export function useSheetsSync() {
       if (data.success) {
         qc.invalidateQueries({ queryKey: ['summary'] });
         qc.invalidateQueries({ queryKey: ['settings'] });
-        // Invalidate all data queries after sync
+        // Invalidate all data queries after sync/deduplicate
         qc.invalidateQueries({ queryKey: ['data'] });
       }
       return data;

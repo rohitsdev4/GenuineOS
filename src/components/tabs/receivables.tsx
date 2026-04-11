@@ -305,7 +305,8 @@ export default function ReceivablesTab() {
           }
         />
       ) : (
-        <ScrollArea className="max-h-[calc(100vh-420px)]">
+        <ScrollArea className="flex-1">
+          <p className="text-sm font-medium text-muted-foreground mb-3">{receivables.length} receivable{receivables.length !== 1 ? 's' : ''} · Pending: {formatCurrency(summary.pending)}</p>
           <div className="grid gap-3 md:grid-cols-2 lg:grid-cols-3">
             {receivables.map((r: any) => {
               const overdue = isOverdue(r);

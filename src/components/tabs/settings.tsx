@@ -4,7 +4,7 @@ import { useState, useEffect, useCallback, useMemo } from 'react';
 import {
   Palette, Building2, Bot, Bell, Sheet, Moon, Sun, Check, Save, RefreshCw,
   Eye, EyeOff, Users, Plus, Pencil, Trash2, Loader2, Brain, Clock,
-  Shield, Zap, AlertCircle, Settings,
+  Shield, Zap, AlertCircle, Settings, CopyX,
 } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -377,7 +377,7 @@ export default function SettingsTab() {
   // ── Render ──────────────────────────────────────────────────────────────────
 
   return (
-    <div className="flex flex-col gap-4 h-full">
+    <div className="flex flex-col gap-4">
       <div className="flex items-center gap-3">
         <div className="flex items-center justify-center size-9 rounded-lg bg-emerald-500/10">
           <Settings className="size-5 text-emerald-500" />
@@ -388,9 +388,8 @@ export default function SettingsTab() {
         </div>
       </div>
 
-      <ScrollArea className="flex-1 max-h-[calc(100vh-180px)]">
-        <Tabs defaultValue="profile" className="pr-1">
-          <TabsList className="mb-4 flex-wrap h-auto gap-1">
+      <Tabs defaultValue="profile" className="pr-1">
+        <TabsList className="mb-4 flex-wrap h-auto gap-1">
             <TabsTrigger value="profile" className="gap-1.5 text-xs">
               <Building2 className="size-3.5" /> Profile
             </TabsTrigger>
@@ -903,6 +902,36 @@ export default function SettingsTab() {
                       {isSyncing ? 'Syncing...' : 'Sync Data'}
                     </Button>
                   </div>
+
+                  {/* Remove Duplicates */}
+                  <Separator />
+                  <div className="flex items-center justify-between">
+                    <div className="space-y-0.5">
+                      <Label className="text-sm font-medium">Remove Duplicate Transactions</Label>
+                      <p className="text-xs text-muted-foreground">Find and remove duplicate payments & expenses from past syncs</p>
+                    </div>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={async () => {
+                        try {
+                          const result = await syncSheets('deduplicate');
+                          if (result.success) {
+                            showToast('Duplicates Removed', result.message);
+                          } else {
+                            showToast('Error', result.error || 'Failed to remove duplicates', 'destructive');
+                          }
+                        } catch {
+                          showToast('Error', 'Failed to remove duplicates', 'destructive');
+                        }
+                      }}
+                      disabled={isSyncing}
+                      className="gap-1.5"
+                    >
+                      {isSyncing ? <Loader2 className="size-3.5 animate-spin" /> : <CopyX className="size-3.5" />}
+                      {isSyncing ? 'Cleaning...' : 'Remove Duplicates'}
+                    </Button>
+                  </div>
                 </CardContent>
               </Card>
 
@@ -1094,7 +1123,6 @@ export default function SettingsTab() {
             </Card>
           </TabsContent>
         </Tabs>
-      </ScrollArea>
     </div>
   );
 }

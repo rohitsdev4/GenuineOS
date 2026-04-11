@@ -57,3 +57,5 @@ download/
 upload/
 scripts/
 dev.log
+db/custom.db
+worklog.md

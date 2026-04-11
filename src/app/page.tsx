@@ -300,7 +300,7 @@ export default function Home() {
     allNavItems.find((i) => i.id === activeTab)?.label || 'Dashboard';
 
   return (
-    <div className="h-screen flex overflow-hidden bg-background">
+    <div className="h-[100dvh] h-screen flex overflow-hidden bg-background">
       {/* ── Desktop Sidebar ── */}
       <DesktopSidebar />
 
@@ -382,7 +382,7 @@ export default function Home() {
         </header>
 
         {/* ── Tab Content ── */}
-        <main className="flex-1 overflow-y-auto">
+        <main className="flex-1 overflow-y-auto overscroll-contain pb-[env(safe-area-inset-bottom,0px)]">
           <Suspense fallback={
             <div className="flex items-center justify-center h-64">
               <Loader2 className="w-6 h-6 animate-spin text-emerald-500" />
@@ -395,7 +395,7 @@ export default function Home() {
                 animate={{ opacity: 1 }}
                 exit={{ opacity: 0 }}
                 transition={{ duration: 0.08 }}
-                className="p-4 md:p-6"
+                className="p-4 pb-24 md:p-6 md:pb-16"
               >
                 <ActiveTabComponent />
               </motion.div>

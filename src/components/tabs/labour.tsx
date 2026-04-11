@@ -318,7 +318,7 @@ export default function LabourTab() {
   };
 
   return (
-    <div className="flex flex-col gap-4 h-full">
+    <div className="flex flex-col gap-4">
       <div className="flex items-center justify-between">
         <div>
           <h2 className="text-lg font-semibold">Labour Management</h2>
@@ -458,8 +458,7 @@ export default function LabourTab() {
             </Dialog>
           </div>
 
-          <ScrollArea className="max-h-[calc(100vh-340px)]">
-            <div className="flex flex-col gap-3 pr-1">
+          <div className="flex flex-col gap-3 pr-1">
               {workersLoading ? (
                 Array.from({ length: 3 }).map((_, i) => (
                   <Card key={i} className="p-4"><Skeleton className="h-5 w-1/3 mb-2" /><Skeleton className="h-4 w-2/3" /></Card>
@@ -506,14 +505,14 @@ export default function LabourTab() {
 
                         {/* Expanded: Payment history */}
                         {isExpanded && (
+                          <>
                           <div className="mt-3 pt-3 border-t">
                             <div className="flex items-center gap-2 mb-2">
                               <TrendingDown className="size-3.5 text-muted-foreground" />
                               <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Payment History</span>
                               <span className="text-xs text-muted-foreground ml-auto">{workerPayments.length} transactions</span>
                             </div>
-                            <ScrollArea className="max-h-[300px]">
-                              <div className="space-y-2 pr-1">
+                            <div className="space-y-2">
                                 {workerPayments.length === 0 ? (
                                   <p className="text-xs text-muted-foreground text-center py-4">No payment records found for this worker</p>
                                 ) : (
@@ -541,16 +540,16 @@ export default function LabourTab() {
                                   ))
                                 )}
                               </div>
-                            </ScrollArea>
-                            <div className="mt-2 pt-2 border-t flex items-center justify-between">
-                              <div className="text-xs text-muted-foreground">
-                                Sites: {stats.sites.length > 0 ? stats.sites.map(s => siteNameMap[s] || s).join(', ') : 'None'}
-                              </div>
-                              <div className="text-xs font-semibold text-red-500">
-                                Total: {formatCurrency(stats.totalPaid, currency)}
-                              </div>
+                          </div>
+                          <div className="mt-2 pt-2 border-t flex items-center justify-between">
+                            <div className="text-xs text-muted-foreground">
+                              Sites: {stats.sites.length > 0 ? stats.sites.map(s => siteNameMap[s] || s).join(', ') : 'None'}
+                            </div>
+                            <div className="text-xs font-semibold text-red-500">
+                              Total: {formatCurrency(stats.totalPaid, currency)}
                             </div>
                           </div>
+                          </>
                         )}
                       </CardContent>
                     </Card>
@@ -558,7 +557,6 @@ export default function LabourTab() {
                 })
               )}
             </div>
-          </ScrollArea>
         </TabsContent>
 
         {/* Payments Sub-tab */}
@@ -634,8 +632,7 @@ export default function LabourTab() {
             </Dialog>
           </div>
 
-          <ScrollArea className="max-h-[calc(100vh-340px)]">
-            <div className="flex flex-col gap-3 pr-1">
+          <div className="flex flex-col gap-3 pr-1">
               {paymentsLoading ? (
                 Array.from({ length: 3 }).map((_, i) => (
                   <Card key={i} className="p-4"><Skeleton className="h-5 w-1/3 mb-2" /><Skeleton className="h-4 w-1/2" /></Card>
@@ -683,7 +680,6 @@ export default function LabourTab() {
                 })
               )}
             </div>
-          </ScrollArea>
         </TabsContent>
       </Tabs>
 

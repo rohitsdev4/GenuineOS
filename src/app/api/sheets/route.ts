@@ -1,7 +1,107 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/lib/db';
 
-// POST - Sheet operations: connect, test, fetch, sync
+// ── Date normalization helpers ─────────────────────────────────────────
+
+function normalizeDate(d: Date | string | undefined): Date | undefined {
+  if (!d) return undefined;
+  const date = new Date(d);
+  if (isNaN(date.getTime())) return undefined;
+  // Return start of day in local timezone
+  return new Date(date.getFullYear(), date.getMonth(), date.getDate());
+}
+
+function dateKey(d: Date | undefined): string {
+  if (!d) return '';
+  const date = new Date(d);
+  const y = date.getFullYear();
+  const m = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+  return `${y}-${m}-${day}`;
+}
+
+// ── Deduplication utilities ────────────────────────────────────────────
+
+async function deduplicatePayments(): Promise<number> {
+  const all = await db.payment.findMany({ orderBy: { createdAt: 'asc' } });
+  const seen = new Set<string>();
+  const toDelete: string[] = [];
+  for (const p of all) {
+    const key = `${(p.party || '').toLowerCase().trim()}|${p.amount}|${dateKey(p.date)}`;
+    if (seen.has(key)) {
+      toDelete.push(p.id);
+    } else {
+      seen.add(key);
+    }
+  }
+  if (toDelete.length > 0) {
+    await db.payment.deleteMany({ where: { id: { in: toDelete } } });
+  }
+  return toDelete.length;
+}
+
+async function deduplicateExpenses(): Promise<number> {
+  const all = await db.expense.findMany({ orderBy: { createdAt: 'asc' } });
+  const seen = new Set<string>();
+  const toDelete: string[] = [];
+  for (const e of all) {
+    const key = `${(e.title || '').toLowerCase().trim()}|${e.amount}|${dateKey(e.date)}`;
+    if (seen.has(key)) {
+      toDelete.push(e.id);
+    } else {
+      seen.add(key);
+    }
+  }
+  if (toDelete.length > 0) {
+    await db.expense.deleteMany({ where: { id: { in: toDelete } } });
+  }
+  return toDelete.length;
+}
+
+// ── Update site financials after sync ──────────────────────────────────
+
+async function updateSiteFinancials(): Promise<number> {
+  const allSites = await db.site.findMany({ select: { id: true } });
+  let updated = 0;
+
+  for (const site of allSites) {
+    // Sum all payments linked to this site
+    const paymentsAgg = await db.payment.aggregate({
+      where: { siteId: site.id },
+      _sum: { amount: true },
+    });
+
+    // Sum all expenses linked to this site
+    const expensesAgg = await db.expense.aggregate({
+      where: { siteId: site.id },
+      _sum: { amount: true },
+    });
+
+    const totalReceived = paymentsAgg._sum.amount || 0;
+    const totalExpenses = expensesAgg._sum.amount || 0;
+
+    // Read current contractValue to calculate pendingAmount
+    const currentSite = await db.site.findUnique({ where: { id: site.id } });
+    if (!currentSite) continue;
+
+    const pendingAmount = Math.max(0, currentSite.contractValue - totalReceived);
+
+    await db.site.update({
+      where: { id: site.id },
+      data: {
+        receivedAmount: totalReceived,
+        pendingAmount: pendingAmount,
+      },
+    });
+
+    updated++;
+  }
+
+  return updated;
+}
+
+// ── POST - Sheet operations: connect, test, fetch, sync, deduplicate ───
+
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
@@ -12,6 +112,18 @@ export async function POST(request: NextRequest) {
 
     const sid = sheetId || settings.googleSheetId;
     const key = apiKey || settings.googleApiKey;
+
+    // Handle deduplicate action (can be called independently)
+    if (action === 'deduplicate') {
+      const paymentsRemoved = await deduplicatePayments();
+      const expensesRemoved = await deduplicateExpenses();
+      return NextResponse.json({
+        success: true,
+        message: `Removed ${paymentsRemoved} duplicate payments and ${expensesRemoved} duplicate expenses`,
+        paymentsRemoved,
+        expensesRemoved,
+      });
+    }
 
     if (!sid || !key) {
       return NextResponse.json({ error: 'Sheet ID and API Key are required' }, { status: 400 });
@@ -57,7 +169,27 @@ export async function POST(request: NextRequest) {
 
       const allData: Record<string, any[]> = {};
       let totalImported = 0;
+      let hasMainSheet = false;
 
+      // First pass: check if a "Main" sheet exists
+      for (const sheetName of sheetNames) {
+        if (sheetName.toLowerCase() === 'main') {
+          hasMainSheet = true;
+          break;
+        }
+      }
+
+      // ── CLEAN SYNC: Clear existing transactions before importing ──
+      if (action === 'sync') {
+        const deleteResult = await db.$transaction([
+          db.payment.deleteMany({}),
+          db.expense.deleteMany({}),
+        ]);
+        console.log(`[Sync] Cleared ${deleteResult[0].count} payments and ${deleteResult[1].count} expenses before reimport`);
+      }
+
+      // ── Pass 1: Import reference sheets first (sites, labour, parties) ──
+      // This ensures reference data exists before we import transactions that link to them
       for (const sheetName of sheetNames) {
         const range = encodeURIComponent(`${sheetName}!A1:ZZ`);
         const dataUrl = `https://sheets.googleapis.com/v4/spreadsheets/${sid}/values/${range}?key=${key}`;
@@ -71,23 +203,65 @@ export async function POST(request: NextRequest) {
         const dataRows = rows.slice(1).filter((r: any[]) => r.some((cell: any) => cell !== ''));
         allData[sheetName] = [{ headers, count: dataRows.length }];
 
-        // Handle Main sheet specifically (our business transaction sheet)
-        if (sheetName.toLowerCase() === 'main' && action === 'sync') {
-          const imported = await importMainSheet(headers, dataRows);
+        if (sheetName.toLowerCase() === 'sites' || sheetName.toLowerCase() === 'labour' || sheetName.toLowerCase() === 'parties' || sheetName.toLowerCase() === 'categories') {
+          const imported = await importReferenceSheet(sheetName, headers, dataRows);
           totalImported += imported;
-        } else {
-          // Handle reference sheets (Sites, Labour, Parties, Categories)
-          if (sheetName.toLowerCase() === 'sites' || sheetName.toLowerCase() === 'labour' || sheetName.toLowerCase() === 'parties' || sheetName.toLowerCase() === 'categories') {
-            const imported = await importReferenceSheet(sheetName, headers, dataRows);
-            totalImported += imported;
-          } else {
-            const detectedType = detectSheetType(sheetName, headers);
-            if (detectedType && action === 'sync') {
-              const imported = await importSheetData(detectedType, headers, dataRows);
-              totalImported += imported;
-            }
-          }
         }
+      }
+
+      // ── Pass 2: Import Main sheet (transactions) after reference data is ready ──
+      for (const sheetName of sheetNames) {
+        if (sheetName.toLowerCase() !== 'main') continue;
+        if (action !== 'sync') continue;
+
+        const sheetData = allData[sheetName];
+        if (!sheetData || sheetData.length === 0) continue;
+
+        const headers = sheetData[0].headers;
+        // Re-fetch data rows from allData (they were stored earlier)
+        const range = encodeURIComponent(`${sheetName}!A1:ZZ`);
+        const dataUrl = `https://sheets.googleapis.com/v4/spreadsheets/${sid}/values/${range}?key=${key}`;
+        const dataRes = await fetch(dataUrl);
+        if (!dataRes.ok) continue;
+        const data = await dataRes.json();
+        const rows = (data.values || []).slice(1).filter((r: any[]) => r.some((cell: any) => cell !== ''));
+
+        const imported = await importMainSheet(headers, rows);
+        totalImported += imported;
+      }
+
+      // ── Pass 3: Import other auto-detected sheets (skip payment/expense if Main exists) ──
+      for (const sheetName of sheetNames) {
+        if (sheetName.toLowerCase() === 'main') continue;
+        if (sheetName.toLowerCase() === 'sites' || sheetName.toLowerCase() === 'labour' || sheetName.toLowerCase() === 'parties' || sheetName.toLowerCase() === 'categories') continue;
+
+        const sheetData = allData[sheetName];
+        if (!sheetData || sheetData.length === 0) continue;
+
+        const headers = sheetData[0].headers;
+        const detectedType = detectSheetType(sheetName, headers);
+        if (detectedType && action === 'sync') {
+          // Skip payment/expense auto-detection if Main sheet was processed
+          if ((detectedType === 'payment' || detectedType === 'expense') && hasMainSheet) {
+            continue;
+          }
+          // Re-fetch data rows
+          const range = encodeURIComponent(`${sheetName}!A1:ZZ`);
+          const dataUrl = `https://sheets.googleapis.com/v4/spreadsheets/${sid}/values/${range}?key=${key}`;
+          const dataRes = await fetch(dataUrl);
+          if (!dataRes.ok) continue;
+          const data = await dataRes.json();
+          const dataRows = (data.values || []).slice(1).filter((r: any[]) => r.some((cell: any) => cell !== ''));
+
+          const imported = await importSheetData(detectedType, headers, dataRows);
+          totalImported += imported;
+        }
+      }
+
+      // ── Update site financials after sync ──
+      let sitesUpdated = 0;
+      if (action === 'sync') {
+        sitesUpdated = await updateSiteFinancials();
       }
 
       const now = new Date();
@@ -97,7 +271,7 @@ export async function POST(request: NextRequest) {
           lastSyncAt: now,
           lastSyncStatus: 'success',
           lastSyncMessage: action === 'sync'
-            ? `Synced ${sheetNames.length} sheets, imported ${totalImported} records`
+            ? `Clean sync: ${sheetNames.length} sheets, ${totalImported} records imported, ${sitesUpdated} sites updated`
             : `Fetched ${sheetNames.length} sheets`,
         },
       });
@@ -105,10 +279,12 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({
         success: true,
         message: action === 'sync'
-          ? `Synced! ${totalImported} records imported across ${sheetNames.length} sheets`
+          ? `Synced! ${totalImported} records imported from ${sheetNames.length} sheets, ${sitesUpdated} sites financially updated`
           : `Fetched ${sheetNames.length} sheets. Use "Sync" to import data.`,
         sheets: allData,
         totalImported,
+        sitesUpdated,
+        cleanSync: action === 'sync',
       });
     }
 
@@ -140,21 +316,26 @@ export async function GET() {
 function detectSheetType(sheetName: string, headers: string[]): string | null {
   const name = sheetName.toLowerCase();
   const h = headers.join(' ');
-  if (name.includes('payment') || name.includes('received') || name.includes('income') || (h.includes('party') && h.includes('amount') && !h.includes('type'))) return 'payment';
-  if (name.includes('expense') || name.includes('spent') || name.includes('cost') || (h.includes('title') && h.includes('amount'))) return 'expense';
+  // Only detect non-transaction sheet types here
+  // Payment/expense detection is skipped when Main sheet exists
   if (name.includes('client') || name.includes('party') || name.includes('customer') || (h.includes('name') && h.includes('phone'))) return 'client';
   if (name.includes('site') || name.includes('project') || name.includes('work')) return 'site';
   if (name.includes('labour') || name.includes('worker') || name.includes('employee') || (h.includes('name') && (h.includes('wage') || h.includes('salary')))) return 'labour';
   if (name.includes('receivable') || name.includes('due') || name.includes('pending')) return 'receivable';
   if (name.includes('task') || name.includes('todo')) return 'task';
+  // Only detect payment/expense sheets if the sheet name is very explicit
+  // (avoids false positives from sheets that have amount columns)
+  if (name.includes('payment') || name.includes('received') || name.includes('income')) return 'payment';
+  if (name.includes('expense') || name.includes('spent') || name.includes('cost')) return 'expense';
   return null;
 }
 
 // Import Main sheet (business transactions with Expense/Payment Received)
+// In clean sync mode, no dedup check is needed since we cleared all records first
 async function importMainSheet(headers: string[], rows: any[][]): Promise<number> {
   let imported = 0;
   const h = headers.map(x => x.toLowerCase().trim());
-  
+
   // Map column indices
   const colIdx: Record<string, number> = {};
   h.forEach((val, i) => {
@@ -183,86 +364,90 @@ async function importMainSheet(headers: string[], rows: any[][]): Promise<number
   const siteMap: Record<string, string> = {};
   allSites.forEach(s => { siteMap[s.name.toLowerCase()] = s.id; });
 
-  for (const row of rows) {
-    try {
-      const type = colIdx.type !== undefined ? String(row[colIdx.type] || '').trim() : '';
-      const amountVal = colIdx.amount !== undefined ? row[colIdx.amount] : 0;
-      const amount = parseFloat(String(amountVal || '0').replace(/[,₹]/g, '')) || 0;
-      if (!amount || !type) continue;
+  // Get all clients for mapping (to link payments to clients)
+  const allClients = await db.client.findMany({ select: { id: true, name: true } });
+  const clientMap: Record<string, string> = {};
+  allClients.forEach(c => { clientMap[c.name.toLowerCase()] = c.id; });
 
-      const dateVal = colIdx.date !== undefined ? row[colIdx.date] : null;
-      let date: Date | undefined;
-      if (dateVal) {
-        date = new Date(dateVal);
-        if (isNaN(date.getTime())) date = undefined;
-      }
+  const BATCH_SIZE = 50;
 
-      const category = colIdx.category !== undefined ? String(row[colIdx.category] || '').trim() : '';
-      const description = colIdx.description !== undefined ? String(row[colIdx.description] || '').trim() : '';
-      const labour = colIdx.labour !== undefined ? String(row[colIdx.labour] || '').trim() : '';
-      const siteName = colIdx.site !== undefined ? String(row[colIdx.site] || '').trim() : '';
-      const party = colIdx.party !== undefined ? String(row[colIdx.party] || '').trim() : '';
-      const user = colIdx.user !== undefined ? String(row[colIdx.user] || '').trim() : '';
+  for (let i = 0; i < rows.length; i += BATCH_SIZE) {
+    const batch = rows.slice(i, i + BATCH_SIZE);
 
-      const managerId = user && managers[user] ? managers[user] : null;
-      const partner = user || null;
-      const siteId = siteName ? siteMap[siteName.toLowerCase()] : undefined;
+    await db.$transaction(async (tx: any) => {
+      for (const row of batch) {
+        try {
+          const type = colIdx.type !== undefined ? String(row[colIdx.type] || '').trim() : '';
+          const amountVal = colIdx.amount !== undefined ? row[colIdx.amount] : 0;
+          const amount = parseFloat(String(amountVal || '0').replace(/[,₹]/g, '')) || 0;
+          if (!amount || !type) continue;
 
-      if (type === 'Payment Received') {
-        // Check for duplicate
-        const dup = await db.payment.findFirst({
-          where: {
-            party,
-            amount,
-            date: date ? new Date(date) : undefined,
-          },
-        });
-        if (!dup) {
-          await db.payment.create({
-            data: {
-              party: party || 'Unknown',
-              amount,
-              date: date || new Date(),
-              mode: 'cash',
-              category: category !== 'N/A' ? category : 'Payment Received',
-              siteId,
-              managerId,
-              partner,
-              notes: description,
-            },
-          });
-          imported++;
+          const dateVal = colIdx.date !== undefined ? row[colIdx.date] : null;
+          const date = normalizeDate(dateVal);
+
+          const category = colIdx.category !== undefined ? String(row[colIdx.category] || '').trim() : '';
+          const description = colIdx.description !== undefined ? String(row[colIdx.description] || '').trim() : '';
+          const labour = colIdx.labour !== undefined ? String(row[colIdx.labour] || '').trim() : '';
+          const siteName = colIdx.site !== undefined ? String(row[colIdx.site] || '').trim() : '';
+          const party = colIdx.party !== undefined ? String(row[colIdx.party] || '').trim() : '';
+          const user = colIdx.user !== undefined ? String(row[colIdx.user] || '').trim() : '';
+
+          const managerId = user && managers[user] ? managers[user] : null;
+          const partner = user || null;
+          const siteId = siteName ? siteMap[siteName.toLowerCase()] || null : null;
+
+          // Client matching: try exact match, then case-insensitive
+          let clientId: string | null = null;
+          if (party) {
+            clientId = clientMap[party.toLowerCase()] || null;
+            if (!clientId) {
+              const lowerParty = party.toLowerCase();
+              for (const [key, val] of Object.entries(clientMap)) {
+                if (key === lowerParty) { clientId = val; break; }
+              }
+            }
+          }
+
+          if (type === 'Payment Received') {
+            await tx.payment.create({
+              data: {
+                party: party || 'Unknown',
+                amount,
+                date: date || new Date(),
+                mode: 'cash',
+                category: category !== 'N/A' ? category : 'Payment Received',
+                siteId,
+                clientId,
+                managerId,
+                partner,
+                notes: description,
+              },
+            });
+            imported++;
+          } else if (type === 'Expense') {
+            await tx.expense.create({
+              data: {
+                title: description || category || 'Other',
+                amount,
+                date: date || new Date(),
+                category: category !== 'N/A' ? category : 'Other',
+                paidTo: labour || null,
+                mode: 'cash',
+                siteId,
+                managerId,
+                partner,
+                notes: description,
+              },
+            });
+            imported++;
+          }
+        } catch (e) {
+          // Skip row on error
         }
-      } else if (type === 'Expense') {
-        const dup = await db.expense.findFirst({
-          where: {
-            title: description || category,
-            amount,
-            date: date ? new Date(date) : undefined,
-          },
-        });
-        if (!dup) {
-          await db.expense.create({
-            data: {
-              title: description || category,
-              amount,
-              date: date || new Date(),
-              category: category !== 'N/A' ? category : 'Other',
-              paidTo: labour || null,
-              mode: 'cash',
-              siteId,
-              managerId,
-              partner,
-              notes: description,
-            },
-          });
-          imported++;
-        }
       }
-    } catch (e) {
-      // Skip row on error
-    }
+    });
   }
+
   return imported;
 }
 
@@ -362,7 +547,7 @@ async function importSheetData(type: string, headers: string[], rows: any[][]): 
         const val = row[parseInt(ci)];
         if (val !== undefined && val !== '') {
           if (fn === 'amount') record[fn] = parseFloat(String(val).replace(/[,₹]/g, '')) || 0;
-          else if (fn === 'date') { const d = new Date(val); if (!isNaN(d.getTime())) record[fn] = d; }
+          else if (fn === 'date') record[fn] = normalizeDate(val);
           else record[fn] = String(val).trim();
         }
       }
@@ -378,20 +563,18 @@ async function importSheetData(type: string, headers: string[], rows: any[][]): 
 
       switch (type) {
         case 'payment': {
+          // Clean sync - no dedup check needed
           if (record.party && record.amount) {
-            const dup = await db.payment.findFirst({
-              where: { party: record.party, amount: record.amount, date: record.date },
-            });
-            if (!dup) { await db.payment.create({ data: record }); imported++; }
+            await db.payment.create({ data: record });
+            imported++;
           }
           break;
         }
         case 'expense': {
+          // Clean sync - no dedup check needed
           if (record.title && record.amount) {
-            const dup = await db.expense.findFirst({
-              where: { title: record.title, amount: record.amount, date: record.date },
-            });
-            if (!dup) { await db.expense.create({ data: record }); imported++; }
+            await db.expense.create({ data: record });
+            imported++;
           }
           break;
         }

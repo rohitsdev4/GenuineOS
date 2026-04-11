@@ -343,17 +343,21 @@ export default function PaymentsTab() {
         />
       ) : isMobile ? (
         /* Mobile Card View */
-        <ScrollArea className="max-h-[calc(100vh-320px)]">
-          <div className="space-y-3">
-            {payments.map((p: any) => (
+        <>
+        <p className="text-sm font-medium text-muted-foreground">{payments.length} payment{payments.length !== 1 ? 's' : ''} · Total: {formatCurrency(totalAmount)}</p>
+        <div className="space-y-3">
+            {payments.map((p: any, idx: number) => (
               <Card key={p.id} className="py-0">
                 <CardContent className="p-4 space-y-2">
                   <div className="flex items-start justify-between">
                     <div className="min-w-0 flex-1">
-                      <p className="font-medium truncate">{p.party}</p>
-                      <p className="text-sm text-muted-foreground">{formatDate(p.date)}</p>
+                      <div className="flex items-center gap-2">
+                        <span className="text-[10px] font-mono text-muted-foreground bg-muted/50 rounded px-1.5 py-0.5 shrink-0">{idx + 1}</span>
+                        <p className="font-medium truncate">{p.party}</p>
+                      </div>
+                      <p className="text-sm text-muted-foreground mt-0.5">{formatDate(p.date)}</p>
                     </div>
-                    <p className="text-lg font-bold text-emerald-500 ml-2">{formatCurrency(p.amount)}</p>
+                    <p className="text-lg font-bold text-emerald-500 ml-2 shrink-0">{formatCurrency(p.amount)}</p>
                   </div>
                   <div className="flex items-center gap-2 flex-wrap">
                     <Badge variant="outline" className={modeColors[p.mode] || ''}>
@@ -383,13 +387,15 @@ export default function PaymentsTab() {
               </Card>
             ))}
           </div>
-        </ScrollArea>
+        </>
       ) : (
         /* Desktop Table View */
-        <ScrollArea className="max-h-[calc(100vh-320px)]">
+        <>
+        <p className="text-sm font-medium text-muted-foreground">{payments.length} payment{payments.length !== 1 ? 's' : ''} · Total: {formatCurrency(totalAmount)}</p>
           <Table>
             <TableHeader>
               <TableRow>
+                <TableHead className="w-12">S.No</TableHead>
                 <TableHead>Date</TableHead>
                 <TableHead>Partner</TableHead>
                 <TableHead>Party</TableHead>
@@ -400,8 +406,9 @@ export default function PaymentsTab() {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {payments.map((p: any) => (
+              {payments.map((p: any, idx: number) => (
                 <TableRow key={p.id}>
+                  <TableCell className="text-muted-foreground text-xs font-mono">{idx + 1}</TableCell>
                   <TableCell className="text-muted-foreground">{formatDate(p.date)}</TableCell>
                   <TableCell>
                     {p.partner && (
@@ -432,7 +439,7 @@ export default function PaymentsTab() {
               ))}
             </TableBody>
           </Table>
-        </ScrollArea>
+        </>
       )}
 
       {/* Add Payment Dialog */}

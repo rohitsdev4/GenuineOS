@@ -34,7 +34,6 @@ import {
 } from '@/components/ui/select';
 import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
-import { ScrollArea } from '@/components/ui/scroll-area';
 import { Separator } from '@/components/ui/separator';
 import { useFetchData, useCreateData, useUpdateData, useDeleteData } from '@/hooks/use-data';
 import { statusColors, formatCurrency, formatDate } from '@/lib/helpers';
@@ -419,7 +418,9 @@ export default function ClientsTab() {
           </p>
         </div>
       ) : (
-        <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
+        <>
+        <p className="text-sm font-medium text-muted-foreground">{filteredClients.length} client{filteredClients.length !== 1 ? 's' : ''}</p>
+        <div className="flex flex-col gap-4 md:grid md:grid-cols-2 xl:grid-cols-3">
           {filteredClients.map((client: Client) => {
             const fin = getClientFinancials(client);
             const isExpanded = expandedClient === client.id;
@@ -428,7 +429,7 @@ export default function ClientsTab() {
             return (
               <Card
                 key={client.id}
-                className={`group transition-shadow hover:shadow-md ${isExpanded ? 'md:col-span-2 xl:col-span-1 ring-1 ring-primary/20' : ''}`}
+                className={`group transition-shadow hover:shadow-md ${isExpanded ? 'ring-1 ring-primary/20' : ''}`}
               >
                 <CardContent className="p-6">
                   {/* ── Client Header ── */}
@@ -466,12 +467,7 @@ export default function ClientsTab() {
                     </div>
                     <div className="flex shrink-0 flex-col items-end gap-1">
                       <div className="flex gap-1 opacity-0 transition-opacity group-hover:opacity-100">
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          className="h-8 w-8"
-                          onClick={() => openEdit(client)}
-                        >
+                        <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => openEdit(client)}>
                           <Pencil className="h-4 w-4" />
                         </Button>
                         <AlertDialog open={!!deleteTarget?.id === client.id} onOpenChange={(v) => { if (!v) setDeleteTarget(null); else setDeleteTarget(client); }}>
@@ -490,10 +486,7 @@ export default function ClientsTab() {
                             <AlertDialogFooter>
                               <AlertDialogCancel>Cancel</AlertDialogCancel>
                               <AlertDialogAction
-                                onClick={(e) => {
-                                  e.preventDefault();
-                                  handleDelete();
-                                }}
+                                onClick={(e) => { e.preventDefault(); handleDelete(); }}
                                 className="bg-red-600 text-white hover:bg-red-700"
                               >
                                 {deleteMutation.isPending ? 'Deleting...' : 'Delete'}
@@ -510,7 +503,6 @@ export default function ClientsTab() {
                     <div className="mt-4">
                       <Separator className="mb-4" />
                       <div className="grid grid-cols-2 gap-3">
-                        {/* Total Received */}
                         <div className="rounded-lg bg-emerald-500/5 border border-emerald-500/15 p-3">
                           <div className="flex items-center gap-1.5 text-xs font-medium text-emerald-600">
                             <IndianRupee className="h-3.5 w-3.5" />
@@ -523,7 +515,6 @@ export default function ClientsTab() {
                             {fin.paymentCount} payment{fin.paymentCount !== 1 ? 's' : ''}
                           </p>
                         </div>
-                        {/* Pending Receivables */}
                         <div className="rounded-lg bg-amber-500/5 border border-amber-500/15 p-3">
                           <div className="flex items-center gap-1.5 text-xs font-medium text-amber-600">
                             <TrendingUp className="h-3.5 w-3.5" />
@@ -537,7 +528,6 @@ export default function ClientsTab() {
                           </p>
                         </div>
                       </div>
-                      {/* Expand/Collapse Button */}
                       <Button
                         variant="ghost"
                         size="sm"
@@ -552,100 +542,100 @@ export default function ClientsTab() {
 
                   {/* ── Expanded Transaction Details ── */}
                   {isExpanded && fin && fin.transactions.length > 0 && (
-                    <div className="mt-2">
-                      <ScrollArea className="max-h-[300px]">
-                        <div className="space-y-2 pr-3">
-                          {fin.transactions.map((txn, idx) => (
-                            <div
-                              key={idx}
-                              className={`rounded-lg border p-3 text-sm ${
-                                txn.type === 'payment'
-                                  ? 'border-emerald-500/15 bg-emerald-500/5'
-                                  : 'border-amber-500/15 bg-amber-500/5'
-                              }`}
-                            >
-                              <div className="flex items-start justify-between gap-2">
-                                <div className="min-w-0 flex-1">
-                                  <div className="flex items-center gap-2">
-                                    <Badge
-                                      variant="outline"
-                                      className={`text-[10px] px-1.5 py-0 ${
-                                        txn.type === 'payment'
-                                          ? 'bg-emerald-500/10 text-emerald-600 border-emerald-500/20'
-                                          : 'bg-amber-500/10 text-amber-600 border-amber-500/20'
-                                      }`}
-                                    >
-                                      {txn.type === 'payment' ? 'Payment' : 'Receivable'}
-                                    </Badge>
-                                    <span className="text-xs text-muted-foreground">
-                                      {txn.type === 'payment' ? formatDate(txn.date) : `Due: ${formatDate(txn.date)}`}
+                    <div className="mt-3 pt-3 border-t border-border/50">
+                      <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider mb-2">
+                        {fin.transactions.length} Transaction{fin.transactions.length !== 1 ? 's' : ''} (Latest First)
+                      </p>
+                      <div className="space-y-2">
+                        {fin.transactions.map((txn, idx) => (
+                          <div
+                            key={idx}
+                            className={`rounded-lg border p-3 text-sm ${
+                              txn.type === 'payment'
+                                ? 'border-emerald-500/15 bg-emerald-500/5'
+                                : 'border-amber-500/15 bg-amber-500/5'
+                            }`}
+                          >
+                            <div className="flex items-center gap-1.5 mb-1">
+                              <span className="text-[10px] font-mono text-muted-foreground bg-muted/50 rounded px-1.5 py-0.5">#{idx + 1}</span>
+                              <Badge
+                                variant="outline"
+                                className={`text-[10px] px-1.5 py-0 ${
+                                  txn.type === 'payment'
+                                    ? 'bg-emerald-500/10 text-emerald-600 border-emerald-500/20'
+                                    : 'bg-amber-500/10 text-amber-600 border-amber-500/20'
+                                }`}
+                              >
+                                {txn.type === 'payment' ? 'Payment' : 'Receivable'}
+                              </Badge>
+                              <span className="text-xs text-muted-foreground">
+                                {txn.type === 'payment' ? formatDate(txn.date) : `Due: ${formatDate(txn.date)}`}
+                              </span>
+                            </div>
+                            <div className="flex items-start justify-between gap-2">
+                              <div className="min-w-0 flex-1">
+                                {/* Amount */}
+                                <p className={`mt-1 text-base font-semibold ${
+                                  txn.type === 'payment' ? 'text-emerald-700 dark:text-emerald-400' : 'text-foreground'
+                                }`}>
+                                  {txn.type === 'payment' ? (
+                                    <span className="flex items-center gap-1">
+                                      <IndianRupee className="h-3.5 w-3.5" />
+                                      {formatCurrency(txn.amount)}
                                     </span>
-                                  </div>
-                                  {/* Amount */}
-                                  <p className={`mt-1.5 text-base font-semibold ${
-                                    txn.type === 'payment' ? 'text-emerald-700 dark:text-emerald-400' : 'text-foreground'
-                                  }`}>
-                                    {txn.type === 'payment' ? (
+                                  ) : (
+                                    <div className="flex items-center gap-3">
                                       <span className="flex items-center gap-1">
                                         <IndianRupee className="h-3.5 w-3.5" />
                                         {formatCurrency(txn.amount)}
                                       </span>
-                                    ) : (
-                                      <div className="flex items-center gap-3">
-                                        <span className="flex items-center gap-1">
-                                          <IndianRupee className="h-3.5 w-3.5" />
-                                          {formatCurrency(txn.amount)}
+                                      {txn.receivedAmount != null && txn.receivedAmount > 0 && (
+                                        <span className="text-xs font-normal text-muted-foreground">
+                                          Received: {formatCurrency(txn.receivedAmount)}
                                         </span>
-                                        {txn.receivedAmount != null && txn.receivedAmount > 0 && (
-                                          <span className="text-xs font-normal text-muted-foreground">
-                                            Received: {formatCurrency(txn.receivedAmount)}
-                                          </span>
-                                        )}
-                                      </div>
-                                    )}
-                                  </p>
-                                  {/* Notes / Description */}
-                                  {(txn.notes || txn.description) && (
-                                    <p className="mt-1 text-xs text-muted-foreground truncate">
-                                      {txn.type === 'payment' ? txn.notes : txn.description}
-                                    </p>
+                                      )}
+                                    </div>
                                   )}
-                                  {/* Extra details row */}
-                                  <div className="mt-1.5 flex flex-wrap items-center gap-1.5">
-                                    {/* Payment-specific badges */}
-                                    {txn.type === 'payment' && txn.partner && (
-                                      <Badge variant="outline" className="text-[10px] px-1.5 py-0 bg-muted/50">
-                                        {txn.partner}
-                                      </Badge>
-                                    )}
-                                    {txn.type === 'payment' && txn.mode && (
-                                      <Badge variant="outline" className="text-[10px] px-1.5 py-0 bg-muted/50 capitalize">
-                                        {txn.mode}
-                                      </Badge>
-                                    )}
-                                    {txn.type === 'payment' && txn.category && (
-                                      <Badge variant="outline" className="text-[10px] px-1.5 py-0 bg-muted/50">
-                                        {txn.category}
-                                      </Badge>
-                                    )}
-                                    {/* Receivable-specific status badge */}
-                                    {txn.type === 'receivable' && txn.status && (
-                                      <Badge
-                                        variant="outline"
-                                        className={`text-[10px] px-1.5 py-0 capitalize ${
-                                          receivableStatusColors[txn.status] || 'bg-muted/50'
-                                        }`}
-                                      >
-                                        {txn.status}
-                                      </Badge>
-                                    )}
-                                  </div>
+                                </p>
+                                {/* Notes / Description */}
+                                {(txn.notes || txn.description) && (
+                                  <p className="mt-1 text-xs text-muted-foreground truncate">
+                                    {txn.type === 'payment' ? txn.notes : txn.description}
+                                  </p>
+                                )}
+                                {/* Extra details row */}
+                                <div className="mt-1.5 flex flex-wrap items-center gap-1.5">
+                                  {txn.type === 'payment' && txn.partner && (
+                                    <Badge variant="outline" className="text-[10px] px-1.5 py-0 bg-muted/50">
+                                      {txn.partner}
+                                    </Badge>
+                                  )}
+                                  {txn.type === 'payment' && txn.mode && (
+                                    <Badge variant="outline" className="text-[10px] px-1.5 py-0 bg-muted/50 capitalize">
+                                      {txn.mode}
+                                    </Badge>
+                                  )}
+                                  {txn.type === 'payment' && txn.category && (
+                                    <Badge variant="outline" className="text-[10px] px-1.5 py-0 bg-muted/50">
+                                      {txn.category}
+                                    </Badge>
+                                  )}
+                                  {txn.type === 'receivable' && txn.status && (
+                                    <Badge
+                                      variant="outline"
+                                      className={`text-[10px] px-1.5 py-0 capitalize ${
+                                        receivableStatusColors[txn.status] || 'bg-muted/50'
+                                      }`}
+                                    >
+                                      {txn.status}
+                                    </Badge>
+                                  )}
                                 </div>
                               </div>
                             </div>
-                          ))}
-                        </div>
-                      </ScrollArea>
+                          </div>
+                        ))}
+                      </div>
                     </div>
                   )}
                 </CardContent>
@@ -653,6 +643,7 @@ export default function ClientsTab() {
             );
           })}
         </div>
+        </>
       )}
 
       {/* ── Edit Client Dialog ── */}

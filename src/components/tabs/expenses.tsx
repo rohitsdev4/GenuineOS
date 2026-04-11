@@ -319,22 +319,26 @@ export default function ExpensesTab() {
         />
       ) : isMobile ? (
         /* Mobile Card View */
-        <ScrollArea className="max-h-[calc(100vh-320px)]">
-          <div className="space-y-3">
-            {expenses.map((e: any) => (
+        <>
+        <p className="text-sm font-medium text-muted-foreground">{expenses.length} expense{expenses.length !== 1 ? 's' : ''} · Total: {formatCurrency(totalAmount)}</p>
+        <div className="space-y-3">
+            {expenses.map((e: any, idx: number) => (
               <Card key={e.id} className="py-0">
                 <CardContent className="p-4 space-y-2">
                   <div className="flex items-start justify-between">
                     <div className="min-w-0 flex-1">
                       <div className="flex items-center gap-2">
-                        <p className="font-medium truncate">{e.title}</p>
-                        {e.isRecurring && (
-                          <Repeat className="size-3.5 text-muted-foreground shrink-0" />
-                        )}
+                        <span className="text-[10px] font-mono text-muted-foreground bg-muted/50 rounded px-1.5 py-0.5 shrink-0">{idx + 1}</span>
+                        <div className="flex items-center gap-2">
+                          <p className="font-medium truncate">{e.title}</p>
+                          {e.isRecurring && (
+                            <Repeat className="size-3.5 text-muted-foreground shrink-0" />
+                          )}
+                        </div>
                       </div>
-                      <p className="text-sm text-muted-foreground">{formatDate(e.date)}</p>
+                      <p className="text-sm text-muted-foreground mt-0.5">{formatDate(e.date)}</p>
                     </div>
-                    <p className="text-lg font-bold text-red-500 ml-2">{formatCurrency(e.amount)}</p>
+                    <p className="text-lg font-bold text-red-500 ml-2 shrink-0">{formatCurrency(e.amount)}</p>
                   </div>
                   <div className="flex items-center gap-2 flex-wrap">
                     {e.partner && (
@@ -365,13 +369,15 @@ export default function ExpensesTab() {
               </Card>
             ))}
           </div>
-        </ScrollArea>
+        </>
       ) : (
         /* Desktop Table View */
-        <ScrollArea className="max-h-[calc(100vh-320px)]">
+        <>
+        <p className="text-sm font-medium text-muted-foreground">{expenses.length} expense{expenses.length !== 1 ? 's' : ''} · Total: {formatCurrency(totalAmount)}</p>
           <Table>
             <TableHeader>
               <TableRow>
+                <TableHead className="w-12">S.No</TableHead>
                 <TableHead>Date</TableHead>
                 <TableHead>Partner</TableHead>
                 <TableHead>Title</TableHead>
@@ -384,8 +390,9 @@ export default function ExpensesTab() {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {expenses.map((e: any) => (
+              {expenses.map((e: any, idx: number) => (
                 <TableRow key={e.id}>
+                  <TableCell className="text-muted-foreground text-xs font-mono">{idx + 1}</TableCell>
                   <TableCell className="text-muted-foreground">{formatDate(e.date)}</TableCell>
                   <TableCell>
                     {e.partner && (
@@ -431,7 +438,7 @@ export default function ExpensesTab() {
               ))}
             </TableBody>
           </Table>
-        </ScrollArea>
+        </>
       )}
 
       {/* Add Expense Dialog */}
