@@ -383,7 +383,7 @@ export default function Home() {
         </header>
 
         {/* ── Tab Content ── */}
-        <main className="flex-1 overflow-y-auto overscroll-contain pb-[env(safe-area-inset-bottom,0px)]">
+        <main className="flex-1 overflow-y-auto overscroll-contain pb-[calc(4rem+env(safe-area-inset-bottom,0px))] md:pb-0">
           <Suspense fallback={
             <div className="flex items-center justify-center h-64">
               <Loader2 className="w-6 h-6 animate-spin text-emerald-500" />
@@ -398,7 +398,7 @@ export default function Home() {
                 transition={{ duration: 0.08 }}
                 className={cn(
                   "p-4 md:p-6",
-                  activeTab === 'chat' ? "pb-20 md:pb-6 h-full flex flex-col" : "pb-28 md:pb-10"
+                  activeTab === 'chat' && "h-full flex flex-col"
                 )}
               >
                 <ActiveTabComponent />
