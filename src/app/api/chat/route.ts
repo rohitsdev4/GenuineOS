@@ -72,14 +72,30 @@ export async function POST(request: NextRequest) {
     // Strictly limit history to last 10 messages to prevent token bloat
     const recentHistory = history.slice(-10);
 
+    // Merge consecutive messages of the same role (Llama models often crash on consecutive 'user' roles)
+    const normalizedHistory: { role: string; content: string }[] = [];
+    for (const m of recentHistory) {
+      const role = m.role === 'assistant' ? 'assistant' : 'user';
+      const content = m.content ? m.content.substring(0, 4000) : '...';
+      
+      if (normalizedHistory.length > 0 && normalizedHistory[normalizedHistory.length - 1].role === role) {
+        normalizedHistory[normalizedHistory.length - 1].content += `\n\n${content}`;
+      } else {
+        normalizedHistory.push({ role, content });
+      }
+    }
+
     const messages = [
       { role: 'system', content: systemContent },
-      ...recentHistory.map((m: { role: string; content: string }) => ({
-        role: m.role === 'assistant' ? 'assistant' : 'user',
-        content: m.content.substring(0, 4000), // Cap history messages at 4000 chars each
-      })),
-      { role: 'user', content: message },
+      ...normalizedHistory,
     ];
+
+    // Ensure the final message is the current user message, merging if the last history was also user
+    if (messages[messages.length - 1].role === 'user') {
+      messages[messages.length - 1].content += `\n\n${message}`;
+    } else {
+      messages.push({ role: 'user', content: message });
+    }
 
     const openai = new OpenAI({
       apiKey,
@@ -93,7 +109,6 @@ export async function POST(request: NextRequest) {
       messages: messages as any,
       temperature: safeTemperature,
       max_tokens: safeMaxTokens,
-      top_p: 1,
     });
 
     let response = completion.choices[0]?.message?.content || '';
