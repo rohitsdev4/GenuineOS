@@ -32,6 +32,7 @@ import {
   ArrowDown,
   ChevronsLeft,
   ChevronsRight,
+  type LucideIcon,
 } from 'lucide-react';
 import { EmptyState } from './empty-state';
 import { cn } from '@/lib/utils';
@@ -45,7 +46,7 @@ interface DataTableProps<TData, TValue> {
   loading?: boolean;
   onAdd?: () => void;
   addLabel?: string;
-  emptyIcon?: React.ComponentType<{ className?: string }>;
+  emptyIcon?: LucideIcon;
   emptyTitle?: string;
   emptyDescription?: string;
   toolbar?: React.ReactNode;

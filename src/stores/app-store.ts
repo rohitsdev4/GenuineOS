@@ -7,6 +7,7 @@ export interface ChatMessage {
   timestamp: Date;
   toolUsed?: boolean;
   thinkingProcess?: string;
+  toolResult?: any;
 }
 
 interface AppState {
@@ -27,6 +28,12 @@ interface AppState {
   setThinkingEnabled: (v: boolean) => void;
   memoryContext: string;
   setMemoryContext: (v: string) => void;
+  nvidiaApiKey: string;
+  setNvidiaApiKey: (v: string) => void;
+  nvidiaModel: string;
+  setNvidiaModel: (v: string) => void;
+  nvidiaBaseUrl: string;
+  setNvidiaBaseUrl: (v: string) => void;
 
   // Sheets sync
   isSyncing: boolean;
@@ -41,6 +48,9 @@ interface AppState {
 
 const MEMORY_KEY = 'genuineos_memory';
 const THINKING_KEY = 'genuineos_thinking';
+const NVIDIA_API_KEY = 'genuineos_nvidia_api_key';
+const NVIDIA_MODEL = 'genuineos_nvidia_model';
+const NVIDIA_BASE_URL = 'genuineos_nvidia_base_url';
 
 // Load persisted state from localStorage (memory/thinking only — chat goes to IndexedDB)
 function loadMemory(): string {
@@ -55,6 +65,27 @@ function loadThinking(): boolean {
     try { return localStorage.getItem(THINKING_KEY) === 'true'; } catch { return false; }
   }
   return false;
+}
+
+function loadNvidiaApiKey(): string {
+  if (typeof window !== 'undefined') {
+    try { return localStorage.getItem(NVIDIA_API_KEY) || ''; } catch { return ''; }
+  }
+  return '';
+}
+
+function loadNvidiaModel(): string {
+  if (typeof window !== 'undefined') {
+    try { return localStorage.getItem(NVIDIA_MODEL) || 'z-ai/glm-5.1'; } catch { return 'z-ai/glm-5.1'; }
+  }
+  return 'z-ai/glm-5.1';
+}
+
+function loadNvidiaBaseUrl(): string {
+  if (typeof window !== 'undefined') {
+    try { return localStorage.getItem(NVIDIA_BASE_URL) || 'https://integrate.api.nvidia.com/v1'; } catch { return 'https://integrate.api.nvidia.com/v1'; }
+  }
+  return 'https://integrate.api.nvidia.com/v1';
 }
 
 // Load chat messages from IndexedDB
@@ -154,6 +185,27 @@ export const useAppStore = create<AppState>((set, get) => ({
     set({ memoryContext: v });
     if (typeof window !== 'undefined') {
       try { localStorage.setItem(MEMORY_KEY, v); } catch { /* ignore */ }
+    }
+  },
+  nvidiaApiKey: loadNvidiaApiKey(),
+  setNvidiaApiKey: (v) => {
+    set({ nvidiaApiKey: v });
+    if (typeof window !== 'undefined') {
+      try { localStorage.setItem(NVIDIA_API_KEY, v); } catch { /* ignore */ }
+    }
+  },
+  nvidiaModel: loadNvidiaModel(),
+  setNvidiaModel: (v) => {
+    set({ nvidiaModel: v });
+    if (typeof window !== 'undefined') {
+      try { localStorage.setItem(NVIDIA_MODEL, v); } catch { /* ignore */ }
+    }
+  },
+  nvidiaBaseUrl: loadNvidiaBaseUrl(),
+  setNvidiaBaseUrl: (v) => {
+    set({ nvidiaBaseUrl: v });
+    if (typeof window !== 'undefined') {
+      try { localStorage.setItem(NVIDIA_BASE_URL, v); } catch { /* ignore */ }
     }
   },
 

@@ -12,6 +12,7 @@ import {
   Settings,
   AlertCircle,
   CheckCircle2,
+  Copy,
 } from 'lucide-react';
 import { useChat } from '@/hooks/use-data';
 import { useAppStore } from '@/stores/app-store';
@@ -136,6 +137,19 @@ function MessageBubble({ msg }: { msg: import('@/stores/app-store').ChatMessage 
           >
             {formatTime(msg.timestamp)}
           </span>
+          {!isUser && (
+            <button
+              onClick={() => {
+                navigator.clipboard.writeText(msg.content);
+                // Optional: you could add a local state here to change the icon to a Check briefly, but this works functionally.
+              }}
+              className="text-[10px] text-muted-foreground hover:text-foreground flex items-center gap-1 transition-colors"
+              title="Copy message"
+            >
+              <Copy className="w-3 h-3" /> Copy
+            </button>
+          )}
+          
           {!isUser && msg.toolUsed && (
             <Badge
               variant="secondary"
@@ -145,6 +159,30 @@ function MessageBubble({ msg }: { msg: import('@/stores/app-store').ChatMessage 
             </Badge>
           )}
         </div>
+
+        {/* Display Tool Result if it's fetched data */}
+        {!isUser && msg.toolResult && msg.toolResult.data && Array.isArray(msg.toolResult.data) && msg.toolResult.data.length > 0 && (
+          <div className="mt-3 text-xs bg-muted/30 rounded-lg p-2 max-h-60 overflow-y-auto border border-emerald-500/20">
+             {msg.toolResult.data.map((item: any) => (
+                <div key={item.id} className="border-b last:border-0 border-border/50 py-1.5 px-1">
+                  {Object.entries(item)
+                    .filter(([k, v]) => !['id', 'createdAt', 'updatedAt', 'siteId', 'managerId'].includes(k) && v !== null && v !== '')
+                    .map(([k, v]) => (
+                    <span key={k} className="mr-3 inline-block">
+                      <span className="text-muted-foreground font-medium capitalize">{k.replace(/([A-Z])/g, ' $1').trim()}:</span>{' '}
+                      <span className="text-foreground">{String(v)}</span>
+                    </span>
+                  ))}
+                </div>
+             ))}
+          </div>
+        )}
+        
+        {!isUser && msg.toolResult && msg.toolResult.data && Array.isArray(msg.toolResult.data) && msg.toolResult.data.length === 0 && (
+          <div className="mt-3 text-xs text-muted-foreground bg-muted/30 rounded-lg p-2 border border-emerald-500/20">
+             No records found.
+          </div>
+        )}
       </div>
 
       {/* User avatar */}
@@ -170,7 +208,7 @@ function WelcomeScreen({ onSend, hasApiKey, onGoToSettings }: { onSend: (msg: st
       <p className="text-sm text-muted-foreground max-w-sm mb-4 leading-relaxed">
         {hasApiKey
           ? 'I can help you manage your business. Try these:'
-          : 'Set up your Gemini API key to get started.'}
+          : 'Set up your NVIDIA NIM API key to get started.'}
       </p>
 
       {!hasApiKey && (
@@ -181,7 +219,8 @@ function WelcomeScreen({ onSend, hasApiKey, onGoToSettings }: { onSend: (msg: st
               <div className="text-left">
                 <p className="text-xs font-medium text-amber-500">API Key Required</p>
                 <p className="text-[11px] text-muted-foreground mt-0.5">
-                  Go to Settings &gt; AI Configuration and add your free Gemini API key from Google AI Studio.
+                  Go to Settings &gt; AI Configuration and add your NVIDIA NIM API key from{' '}
+                  <a href="https://build.nvidia.com/" target="_blank" rel="noopener noreferrer" className="text-emerald-500 underline">NVIDIA Build</a>.
                 </p>
               </div>
             </div>
@@ -240,6 +279,7 @@ function MemoryPanel() {
 }
 
 /* ── Main chat tab ────────────────────────────────────────────────── */
+
 export default function ChatTab() {
   const { sendMessage } = useChat();
   const { data: settings } = useSettings();
@@ -250,17 +290,19 @@ export default function ChatTab() {
     thinkingEnabled,
     setThinkingEnabled,
     setActiveTab,
+    nvidiaApiKey,
+    nvidiaModel,
+    nvidiaBaseUrl,
   } = useAppStore();
 
   const [input, setInput] = useState('');
-  const [memoryOpen, setMemoryOpen] = useState(false);
 
+  const [memoryOpen, setMemoryOpen] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
-  const s = settings as Record<string, any> | undefined;
-  const hasApiKey = !!s?.apiKey;
-  const modelName = s?.model || 'gemini-2.5-flash';
+  const hasApiKey = !!nvidiaApiKey;
+  const modelName = nvidiaModel || 'NVIDIA NIM (GLM 5.1)';
 
   // Auto-scroll to bottom when messages change or loading starts
   useEffect(() => {
@@ -392,7 +434,12 @@ export default function ChatTab() {
       <ScrollArea className="flex-1 overflow-auto">
         <div className="p-4 space-y-4 min-h-0">
           {chatMessages.length === 0 ? (
-            <WelcomeScreen onSend={sendMessage} hasApiKey={hasApiKey} onGoToSettings={() => setActiveTab('settings')} />
+            <WelcomeScreen onSend={(msg) => {
+              setInput(msg);
+              setTimeout(() => {
+                 document.getElementById('chat-send-btn')?.click();
+              }, 10);
+            }} hasApiKey={hasApiKey} onGoToSettings={() => setActiveTab('settings')} />
           ) : (
             <>
               {chatMessages.map((msg) => (
@@ -414,7 +461,7 @@ export default function ChatTab() {
         {!hasApiKey && (
           <div className="mb-2 flex items-center gap-1.5 text-[11px] text-amber-500">
             <AlertCircle className="w-3 h-3" />
-            <span>Add your Gemini API key in Settings to start chatting</span>
+            <span>Add your NVIDIA NIM API key in Settings to start chatting</span>
           </div>
         )}
         <div className="flex items-end gap-2">
@@ -429,6 +476,7 @@ export default function ChatTab() {
             disabled={isChatLoading || !hasApiKey}
           />
           <Button
+            id="chat-send-btn"
             onClick={handleSend}
             disabled={!input.trim() || isChatLoading || !hasApiKey}
             size="icon"

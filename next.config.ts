@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-require-imports */
 import type { NextConfig } from "next";
 const withPWA = require("@ducanh2912/next-pwa").default({
   dest: "public",
@@ -11,8 +12,6 @@ const withPWA = require("@ducanh2912/next-pwa").default({
 });
 
 const nextConfig: NextConfig = {
-  typescript: { ignoreBuildErrors: true },
-  eslint: { ignoreDuringBuilds: true },
   reactStrictMode: false,
 };
 

@@ -161,10 +161,10 @@ function ActivityRowSkeleton() {
 
 // ── Summary Card ──────────────────────────────────────────────────
 function SummaryCard({
-  title, amount, icon: Icon, color, subtext, loading,
+  title, amount, icon: Icon, color, subtext, loading = false,
 }: {
   title: string; amount: number; icon: React.ElementType;
-  color: string; subtext?: string; loading: boolean;
+  color: string; subtext?: string; loading?: boolean;
 }) {
   const bgMap: Record<string, string> = {
     'text-emerald-500': 'bg-emerald-500/15',

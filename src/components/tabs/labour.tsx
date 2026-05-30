@@ -36,6 +36,20 @@ interface LabourWorker {
   phone: string | null;
   role: string;
   status: string;
+  dailyWage?: number;
+  monthlySalary?: number;
+  bankName?: string | null;
+  bankAccount?: string | null;
+  bankIfsc?: string | null;
+  skillLevel?: string;
+  joinDate?: string | null;
+  notes?: string | null;
+  aadhaar?: string | null;
+  address?: string | null;
+  advanceAmount?: number;
+  siteId?: string | null;
+  createdAt?: string;
+  updatedAt?: string;
 }
 
 interface LabourPayment {
@@ -44,6 +58,12 @@ interface LabourPayment {
   amount: number;
   date: string;
   mode: string;
+  month?: string | null;
+  daysWorked?: number;
+  reference?: string | null;
+  notes?: string | null;
+  createdAt?: string;
+  updatedAt?: string;
 }
 
 interface ExpenseRecord {
@@ -217,7 +237,7 @@ export default function LabourTab() {
       siteId: (worker as any).siteId || '', dailyWage: (worker as any).dailyWage?.toString() || '0',
       monthlySalary: (worker as any).monthlySalary?.toString() || '0',
       bankName: (worker as any).bankName || '', bankAccount: (worker as any).bankAccount || '',
-      bankIfsc: (worker as any).bankIfsc || '', skillLevel: worker.skillLevel,
+      bankIfsc: (worker as any).bankIfsc || '', skillLevel: worker.skillLevel || '',
       joinDate: worker.joinDate ? new Date(worker.joinDate).toISOString().split('T')[0] : '',
       notes: (worker as any).notes || '',
     });
@@ -659,7 +679,7 @@ export default function LabourTab() {
                               <span className="font-semibold text-foreground">{formatCurrency(payment.amount, currency)}</span>
                               <span>{formatDate(payment.date, dateFormat)}</span>
                               {payment.month && <span>{payment.month}</span>}
-                              {payment.daysWorked > 0 && <span>{payment.daysWorked} day{payment.daysWorked !== 1 ? 's' : ''}</span>}
+                              {(payment.daysWorked ?? 0) > 0 && <span>{payment.daysWorked} day{(payment.daysWorked ?? 0) !== 1 ? 's' : ''}</span>}
                               <Badge variant="outline" className="text-[10px]">{payment.mode}</Badge>
                             </div>
                           </div>

@@ -343,9 +343,9 @@ export function createDefaultSettings(): AppSettings {
   const now = new Date().toISOString();
   return {
     id: 'main',
-    llmProvider: 'gemini',
+    llmProvider: 'nvidia-nim',
     apiKey: null,
-    model: 'gemini-2.5-flash',
+    model: 'z-ai/glm-5.1',
     temperature: 0.7,
     maxTokens: 4096,
     thinkingEnabled: false,

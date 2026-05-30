@@ -24,7 +24,6 @@ import { Badge } from '@/components/ui/badge';
 import { Textarea } from '@/components/ui/textarea';
 import { Switch } from '@/components/ui/switch';
 import { Skeleton } from '@/components/ui/skeleton';
-import { ScrollArea } from '@/components/ui/scroll-area';
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from '@/components/ui/select';
@@ -98,7 +97,7 @@ export default function ExpensesTab() {
   const [siteFilter, setSiteFilter] = useState('');
   const [debouncedSearch, setDebouncedSearch] = useState('');
 
-  const searchTimerRef = useRef<ReturnType<typeof setTimeout>>();
+  const searchTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   useEffect(() => {
     if (searchTimerRef.current) clearTimeout(searchTimerRef.current);
     searchTimerRef.current = setTimeout(() => setDebouncedSearch(search), 300);
@@ -139,7 +138,7 @@ export default function ExpensesTab() {
   sitesList.forEach((s: any) => { siteNameMap[s.id] = s.name; });
 
   // Unique paidTo values for autocomplete
-  const uniquePaidTo = useMemo(() => [...new Set(expenses.map((e: any) => e.paidTo).filter(Boolean))], [expenses]);
+  const uniquePaidTo = useMemo(() => [...new Set<string>(expenses.map((e: any) => e.paidTo).filter(Boolean))] as string[], [expenses]);
 
   const handleAdd = async () => {
     if (!addForm.title.trim() || !addForm.amount || Number(addForm.amount) <= 0) {
@@ -534,7 +533,7 @@ export default function ExpensesTab() {
                 onChange={(e) => setAddForm({ ...addForm, paidTo: e.target.value })}
                 autoComplete="off"
               />
-              {addForm.paidTo && uniquePaidTo.filter((v) => v.toLowerCase().includes(addForm.paidTo.toLowerCase())).length > 0 && (
+              {addForm.paidTo && uniquePaidTo.filter((v: string) => v.toLowerCase().includes(addForm.paidTo.toLowerCase())).length > 0 && (
                 <div className="absolute left-0 right-0 top-full z-50 mt-1 bg-popover border rounded-md shadow-lg max-h-40 overflow-y-auto">
                   {uniquePaidTo
                     .filter((v) => v.toLowerCase().includes(addForm.paidTo.toLowerCase()))
@@ -681,7 +680,7 @@ export default function ExpensesTab() {
                 onChange={(e) => setEditForm({ ...editForm, paidTo: e.target.value })}
                 autoComplete="off"
               />
-              {editForm.paidTo && uniquePaidTo.filter((v) => v.toLowerCase().includes(editForm.paidTo.toLowerCase())).length > 0 && (
+              {editForm.paidTo && uniquePaidTo.filter((v: string) => v.toLowerCase().includes(editForm.paidTo.toLowerCase())).length > 0 && (
                 <div className="absolute left-0 right-0 top-full z-50 mt-1 bg-popover border rounded-md shadow-lg max-h-40 overflow-y-auto">
                   {uniquePaidTo
                     .filter((v) => v.toLowerCase().includes(editForm.paidTo.toLowerCase()))

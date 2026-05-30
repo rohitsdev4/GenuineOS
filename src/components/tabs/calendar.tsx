@@ -7,7 +7,6 @@ import { formatDate, priorityColors, statusColors } from '@/lib/helpers';
 import { Calendar } from '@/components/ui/calendar';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { ScrollArea } from '@/components/ui/scroll-area';
 import { Skeleton } from '@/components/ui/skeleton';
 import { EmptyState } from '@/components/shared/empty-state';
 
@@ -164,7 +163,7 @@ export default function CalendarTab() {
                 description="There are no tasks scheduled for this date."
               />
             ) : (
-              <ScrollArea className="max-h-96">
+              <div className="h-96 overflow-y-auto overscroll-contain">
                 <div className="space-y-2">
                   {selectedDateTasks.map((task: TaskItem) => (
                     <div
@@ -204,7 +203,7 @@ export default function CalendarTab() {
                     </div>
                   ))}
                 </div>
-              </ScrollArea>
+              </div>
             )}
           </CardContent>
         </Card>

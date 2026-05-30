@@ -212,18 +212,11 @@ export function useChat() {
     store.addChatMessage({ id: crypto.randomUUID(), role: 'user', content: message, timestamp: new Date() });
 
     try {
-      // Read API key and model from IndexedDB settings
-      let apiKey = '';
-      let model = 'gemini-2.5-flash';
-      let temperature = 0.7;
-      let maxTokens = 8192;
-      try {
-        const settings = await getSettings();
-        apiKey = settings.apiKey || '';
-        model = settings.model || 'gemini-2.5-flash';
-        temperature = settings.temperature ?? 0.7;
-        maxTokens = settings.maxTokens ?? 8192;
-      } catch { /* settings not available */ }
+      const apiKey = store.nvidiaApiKey;
+      const baseUrl = store.nvidiaBaseUrl || 'https://integrate.api.nvidia.com/v1';
+      const model = store.nvidiaModel || 'z-ai/glm-5.1';
+      const temperature = 0.7;
+      const maxTokens = 1024;
 
       // Build history from last 20 messages (larger context window)
       const history = store.chatMessages.slice(-20).map(m => ({ role: m.role, content: m.content }));
@@ -237,6 +230,7 @@ export function useChat() {
           memoryContext: store.memoryContext,
           apiKey,
           model,
+          baseUrl,
           temperature,
           maxTokens,
         }),
@@ -360,6 +354,13 @@ export function useChat() {
               break;
             case 'DELETE_RECORD':
               toolResult = await dr(params.type, params.id);
+              break;
+            case 'FETCH_DATA':
+              toolResult = await fd({
+                model: params.model,
+                search: params.query,
+                limit: 20
+              });
               break;
           }
 

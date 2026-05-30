@@ -4,7 +4,7 @@ import { useState, useEffect, useCallback, useMemo } from 'react';
 import {
   Palette, Building2, Bot, Bell, Sheet, Moon, Sun, Check, Save, RefreshCw,
   Eye, EyeOff, Users, Plus, Pencil, Trash2, Loader2, Brain, Clock,
-  Shield, Zap, AlertCircle, Settings, CopyX,
+  Shield, Zap, AlertCircle, Settings, CopyX, ChevronUp, ChevronDown,
 } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -46,12 +46,14 @@ const accentColors = [
 ];
 
 const currencies = ['₹', '$', '€', '£'];
-const llmProviders = ['gemini'];
-const geminiModels = [
-  { value: 'gemini-2.5-flash', label: 'Gemini 2.5 Flash (Recommended)' },
-  { value: 'gemini-2.5-flash-preview-05-20', label: 'Gemini 2.5 Flash Preview (Thinking)' },
-  { value: 'gemini-2.0-flash', label: 'Gemini 2.0 Flash' },
-  { value: 'gemini-2.0-flash-lite', label: 'Gemini 2.0 Flash Lite (Fast)' },
+const nimModels = [
+  { value: 'z-ai/glm-5.1', label: 'GLM 5.1 — Z.ai (Recommended)' },
+  { value: 'meta/llama-3.1-8b-instruct', label: 'Llama 3.1 8B Instruct (Ultra Fast)' },
+  { value: 'deepseek-ai/deepseek-3.2', label: 'DeepSeek 3.2' },
+  { value: 'minimax/minimax-m2.7', label: 'MiniMax M2.7' },
+  { value: 'moonshotai/kimi-2.5', label: 'Kimi 2.5 — Moonshot AI' },
+  { value: 'gpt-oss/gpt-oss-120b', label: 'GPT-OSS 120B (MoE)' },
+  { value: 'nvidia/nemotron-4-340b-instruct', label: 'Nemotron 4 340B Instruct' },
 ];
 const syncIntervals = [
   { label: '15 minutes', value: 15 },
@@ -95,6 +97,14 @@ export default function SettingsTab() {
   const { syncSheets, isSyncing, lastSyncResult } = useSheetsSync();
   const thinkingEnabled = useAppStore((s) => s.thinkingEnabled);
   const setThinkingEnabled = useAppStore((s) => s.setThinkingEnabled);
+  const nvidiaApiKey = useAppStore((s) => s.nvidiaApiKey);
+  const setNvidiaApiKey = useAppStore((s) => s.setNvidiaApiKey);
+  const nvidiaModel = useAppStore((s) => s.nvidiaModel);
+  const setNvidiaModel = useAppStore((s) => s.setNvidiaModel);
+  const nvidiaBaseUrl = useAppStore((s) => s.nvidiaBaseUrl);
+  const setNvidiaBaseUrl = useAppStore((s) => s.setNvidiaBaseUrl);
+
+  const [showAdvanced, setShowAdvanced] = useState(false);
 
   const s = settings as Record<string, any> | undefined;
 
@@ -105,7 +115,6 @@ export default function SettingsTab() {
     businessEmail: '', businessGst: '',
   });
   const [llm, setLlm] = useState({
-    apiKey: '', modelName: 'gemini-2.5-flash', provider: 'gemini',
     temperature: 0.7, maxTokens: 8192,
   });
   const [showApiKey, setShowApiKey] = useState(false);
@@ -136,9 +145,6 @@ export default function SettingsTab() {
         businessGst: s.businessGst || '',
       });
       setLlm({
-        apiKey: s.apiKey || '',
-        modelName: s.model || 'gemini-2.5-flash',
-        provider: s.llmProvider || 'gemini',
         temperature: s.temperature ?? 0.7,
         maxTokens: s.maxTokens ?? 8192,
       });
@@ -194,17 +200,16 @@ export default function SettingsTab() {
   // ── LLM save ────────────────────────────────────────────────────────────────
 
   const saveLlm = useCallback(() => {
+    // Save NVIDIA NIM settings (already auto-saved to localStorage via Zustand)
+    // Also persist temperature/maxTokens/thinking to IndexedDB settings
     updateSettings({
-      llmProvider: llm.provider,
-      model: llm.modelName,
-      apiKey: llm.apiKey,
       temperature: llm.temperature,
       maxTokens: llm.maxTokens,
       thinkingEnabled,
     }).then(() => {
-      showToast('Saved', 'LLM configuration updated.');
+      showToast('Saved', 'AI configuration updated.');
     }).catch(() => {
-      showToast('Error', 'Failed to save LLM config.', 'destructive');
+      showToast('Error', 'Failed to save AI config.', 'destructive');
     });
   }, [llm, thinkingEnabled, updateSettings, showToast]);
 
@@ -682,55 +687,55 @@ export default function SettingsTab() {
                 <CardTitle className="text-base flex items-center gap-2">
                   <Bot className="size-4 text-emerald-500" /> AI Configuration
                 </CardTitle>
-                <CardDescription>Configure the Gemini AI model for your smart assistant</CardDescription>
+                <CardDescription>Configure the NVIDIA NIM AI model for your smart assistant</CardDescription>
               </CardHeader>
               <CardContent className="space-y-5">
                 <div className="rounded-lg border bg-muted/30 p-3">
                   <p className="text-xs text-muted-foreground leading-relaxed">
-                    Uses <span className="font-medium text-foreground">Google Gemini Free Tier</span> API. Get your free API key from{' '}
+                    Uses <span className="font-medium text-foreground">NVIDIA NIM Free Endpoints</span>. Get your API key from{' '}
                     <a
-                      href="https://aistudio.google.com/apikey"
+                      href="https://build.nvidia.com/"
                       target="_blank"
                       rel="noopener noreferrer"
                       className="text-emerald-500 underline underline-offset-2 hover:text-emerald-400"
                     >
-                      Google AI Studio
+                      NVIDIA Build
                     </a>.
-                    Free tier supports up to 15 requests/minute and 1M tokens context window.
+                    All models listed below are free to use for development — no credit card required.
                   </p>
                 </div>
 
                 <div className="space-y-2">
                   <Label>Model</Label>
                   <Select
-                    value={llm.modelName || 'gemini-2.5-flash'}
-                    onValueChange={(v) => setLlm((p) => ({ ...p, modelName: v }))}
+                    value={nvidiaModel || 'z-ai/glm-5.1'}
+                    onValueChange={(v) => setNvidiaModel(v)}
                   >
                     <SelectTrigger className="w-full">
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
-                      {geminiModels.map((m) => (
+                      {nimModels.map((m) => (
                         <SelectItem key={m.value} value={m.value}>
                           {m.label}
                         </SelectItem>
                       ))}
                     </SelectContent>
                   </Select>
-                  <p className="text-[11px] text-muted-foreground">Gemini 2.5 Flash is recommended for best quality and speed</p>
+                  <p className="text-[11px] text-muted-foreground">GLM 5.1 by Z.ai is recommended — excellent for reasoning, coding and agentic tasks</p>
                 </div>
 
                 <div className="space-y-2">
-                  <Label htmlFor="llm-key">
-                    Gemini API Key <span className="text-red-500">*</span>
+                  <Label htmlFor="nvidia-key">
+                    NVIDIA NIM API Key <span className="text-red-500">*</span>
                   </Label>
                   <div className="relative">
                     <Input
-                      id="llm-key"
+                      id="nvidia-key"
                       type={showApiKey ? 'text' : 'password'}
-                      value={llm.apiKey}
-                      onChange={(e) => setLlm((p) => ({ ...p, apiKey: e.target.value }))}
-                      placeholder="AIzaSy..."
+                      value={nvidiaApiKey}
+                      onChange={(e) => setNvidiaApiKey(e.target.value)}
+                      placeholder="nvapi-..."
                       className="pr-10"
                     />
                     <Button
@@ -743,12 +748,42 @@ export default function SettingsTab() {
                       {showApiKey ? <EyeOff className="size-4" /> : <Eye className="size-4" />}
                     </Button>
                   </div>
-                  {llm.apiKey && (
+                  {nvidiaApiKey && (
                     <p className="text-[11px] text-emerald-500 flex items-center gap-1">
                       <Check className="size-3" /> API key configured
                     </p>
                   )}
                 </div>
+
+                <div className="pt-2">
+                  <Button variant="outline" size="sm" onClick={() => setShowAdvanced(!showAdvanced)} className="w-full justify-between">
+                    <span>Advanced Settings</span>
+                    {showAdvanced ? <ChevronUp className="size-4" /> : <ChevronDown className="size-4" />}
+                  </Button>
+                </div>
+
+                {showAdvanced && (
+                  <div className="space-y-4 p-3 border rounded-lg bg-muted/20">
+                    <div className="space-y-2">
+                      <Label htmlFor="nvidia-base-url">Base URL</Label>
+                      <Input
+                        id="nvidia-base-url"
+                        value={nvidiaBaseUrl}
+                        onChange={(e) => setNvidiaBaseUrl(e.target.value)}
+                        placeholder="https://integrate.api.nvidia.com/v1"
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="nvidia-model">Model Name</Label>
+                      <Input
+                        id="nvidia-model"
+                        value={nvidiaModel}
+                        onChange={(e) => setNvidiaModel(e.target.value)}
+                        placeholder="z-ai/glm-5.1"
+                      />
+                    </div>
+                  </div>
+                )}
 
                 <div className="space-y-3">
                   <div className="flex items-center justify-between">

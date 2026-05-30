@@ -134,7 +134,7 @@ export default function PaymentsTab() {
   const [debouncedSearch, setDebouncedSearch] = useState('');
 
   // Debounce search
-  const searchTimerRef = useRef<ReturnType<typeof setTimeout>>();
+  const searchTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   useEffect(() => {
     if (searchTimerRef.current) clearTimeout(searchTimerRef.current);
     searchTimerRef.current = setTimeout(() => setDebouncedSearch(search), 300);

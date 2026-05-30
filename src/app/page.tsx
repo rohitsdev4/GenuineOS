@@ -196,8 +196,8 @@ function SidebarNav({ onItemClick }: { onItemClick?: () => void }) {
     <div className="flex flex-col h-full min-h-0">
       {/* ── Logo Area ── */}
       <div className="flex items-center gap-3 px-4 h-14 shrink-0">
-        <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-emerald-500 to-emerald-600 flex items-center justify-center shadow-lg shadow-emerald-500/25">
-          <Sparkles className="w-5 h-5 text-white" />
+        <div className="w-9 h-9 rounded-xl overflow-hidden flex items-center justify-center shadow-md bg-white">
+          <img src="/logo-512.png" alt="GenuineOS Logo" className="w-full h-full object-contain" />
         </div>
         <div className="flex flex-col min-w-0">
           <h1 className="font-bold text-[15px] leading-tight tracking-tight">

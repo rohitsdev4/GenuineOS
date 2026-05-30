@@ -29,7 +29,6 @@ import { Label } from '@/components/ui/label';
 import { Progress } from '@/components/ui/progress';
 import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
-import { ScrollArea } from '@/components/ui/scroll-area';
 import { Separator } from '@/components/ui/separator';
 import { useFetchData, useCreateData, useUpdateData, useDeleteData } from '@/hooks/use-data';
 import { formatCurrency, formatDate, statusColors } from '@/lib/helpers';
@@ -442,14 +441,14 @@ export default function SitesTab() {
           </p>
         </div>
       ) : (
-        <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
+        <div className="columns-1 gap-4 lg:columns-2">
           {filteredSites.map((site: Site) => {
             const fin = siteFinancials[site.id] || { totalReceived: 0, totalExpenses: 0, paymentCount: 0, expenseCount: 0, transactions: [] };
             const balance = fin.totalReceived - fin.totalExpenses;
             const isExpanded = expandedSite === site.id;
 
             return (
-              <Card key={site.id} className={cn('group transition-shadow hover:shadow-md', isExpanded && 'ring-1 ring-primary/20 shadow-md')}>
+              <Card key={site.id} className={cn('break-inside-avoid mb-4 group transition-shadow hover:shadow-md overflow-hidden', isExpanded && 'ring-1 ring-primary/20 shadow-md')}>
                 <CardContent className="p-0">
                   {/* Clickable Header Area */}
                   <div
@@ -600,7 +599,7 @@ export default function SitesTab() {
                           No transactions recorded for this site yet.
                         </div>
                       ) : (
-                        <ScrollArea className="max-h-96">
+                        <div className="max-h-96 overflow-y-auto overscroll-contain">
                           <div className="px-6 py-3 space-y-1">
                             {fin.transactions.map((txn: any, idx: number) => (
                               <div
@@ -648,7 +647,7 @@ export default function SitesTab() {
                               </div>
                             ))}
                           </div>
-                        </ScrollArea>
+                        </div>
                       )}
 
                       {/* Summary footer */}
