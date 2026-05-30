@@ -431,8 +431,8 @@ export default function ChatTab() {
       )}
 
       {/* ── Message area ────────────────────────────────────────── */}
-      <ScrollArea className="flex-1 overflow-auto">
-        <div className="p-4 space-y-4 min-h-0">
+      <ScrollArea className="flex-1 min-h-0">
+        <div className="p-4 space-y-4">
           {chatMessages.length === 0 ? (
             <WelcomeScreen onSend={(msg) => {
               setInput(msg);
