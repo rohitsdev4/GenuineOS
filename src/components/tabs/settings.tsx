@@ -400,7 +400,7 @@ export default function SettingsTab() {
       </div>
 
       <Tabs defaultValue="profile" className="pr-1">
-        <TabsList className="mb-4 flex-wrap h-auto gap-1">
+        <TabsList className="mb-4 w-full justify-start overflow-x-auto overflow-y-hidden h-12 p-1 gap-1">
             <TabsTrigger value="profile" className="gap-1.5 text-xs">
               <Building2 className="size-3.5" /> Profile
             </TabsTrigger>

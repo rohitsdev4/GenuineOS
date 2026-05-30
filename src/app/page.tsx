@@ -400,6 +400,7 @@ export default function Home() {
                   "p-4 md:p-6",
                   activeTab === 'chat' ? "pb-20 md:pb-6 h-full flex flex-col" : "pb-28 md:pb-10"
                 )}
+              >
                 <ActiveTabComponent />
               </motion.div>
             </AnimatePresence>
