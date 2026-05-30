@@ -396,8 +396,10 @@ export default function Home() {
                 animate={{ opacity: 1 }}
                 exit={{ opacity: 0 }}
                 transition={{ duration: 0.08 }}
-                className="p-4 pb-28 md:p-6 md:pb-16 h-full flex flex-col"
-              >
+                className={cn(
+                  "p-4 md:p-6",
+                  activeTab === 'chat' ? "pb-20 md:pb-6 h-full flex flex-col" : "pb-28 md:pb-10"
+                )}
                 <ActiveTabComponent />
               </motion.div>
             </AnimatePresence>
