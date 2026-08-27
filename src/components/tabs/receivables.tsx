@@ -43,8 +43,13 @@ interface AddReceivableForm {
 }
 
 interface UpdateReceivableForm {
+  party: string;
+  amount: string;
   receivedAmount: string;
   status: string;
+  priority: string;
+  dueDate: string;
+  description: string;
   notes: string;
 }
 
@@ -59,8 +64,13 @@ const emptyAddForm: AddReceivableForm = {
 };
 
 const emptyUpdateForm: UpdateReceivableForm = {
+  party: '',
+  amount: '',
   receivedAmount: '',
   status: 'pending',
+  priority: 'medium',
+  dueDate: '',
+  description: '',
   notes: '',
 };
 
@@ -158,8 +168,8 @@ export default function ReceivablesTab() {
   };
 
   const handleUpdate = async () => {
-    if (!updateForm.status) {
-      toast({ title: 'Validation Error', description: 'Status is required.', variant: 'destructive' });
+    if (!updateForm.party.trim() || !updateForm.amount || Number(updateForm.amount) <= 0) {
+      toast({ title: 'Validation Error', description: 'Party and a valid amount are required.', variant: 'destructive' });
       return;
     }
     try {
@@ -167,12 +177,17 @@ export default function ReceivablesTab() {
         model: 'receivable',
         id: selectedItem.id,
         data: {
+          party: updateForm.party.trim(),
+          amount: Number(updateForm.amount) || 0,
           receivedAmount: Number(updateForm.receivedAmount) || 0,
           status: updateForm.status,
+          priority: updateForm.priority,
+          dueDate: updateForm.dueDate ? new Date(updateForm.dueDate).toISOString() : undefined,
+          description: updateForm.description.trim() || undefined,
           notes: updateForm.notes.trim() || undefined,
         },
       });
-      toast({ title: 'Receivable Updated', description: `Status updated to ${updateForm.status}.` });
+      toast({ title: 'Receivable Updated', description: `${updateForm.party} updated successfully.` });
       setUpdateOpen(false);
       setSelectedItem(null);
     } catch (err) {
@@ -183,11 +198,11 @@ export default function ReceivablesTab() {
 
   const handleMarkFullyReceived = () => {
     if (!selectedItem) return;
-    setUpdateForm({
-      receivedAmount: String(selectedItem.amount),
+    setUpdateForm((f) => ({
+      ...f,
+      receivedAmount: String(selectedItem.amount || 0),
       status: 'received',
-      notes: updateForm.notes,
-    });
+    }));
   };
 
   const handleDelete = async () => {
@@ -205,8 +220,13 @@ export default function ReceivablesTab() {
   const openUpdate = (item: any) => {
     setSelectedItem(item);
     setUpdateForm({
+      party: item.party || '',
+      amount: String(item.amount || 0),
       receivedAmount: String(item.receivedAmount || 0),
       status: item.status || 'pending',
+      priority: item.priority || 'medium',
+      dueDate: item.dueDate ? new Date(item.dueDate).toISOString().split('T')[0] : '',
+      description: item.description || '',
       notes: item.notes || '',
     });
     setUpdateOpen(true);
@@ -368,12 +388,13 @@ export default function ReceivablesTab() {
                     </div>
 
                     {/* Actions */}
-                    <div className="flex items-center justify-end gap-1 pt-1">
-                      <Button variant="ghost" size="sm" className="size-8" onClick={() => openUpdate(r)}>
-                        <Pencil className="size-3.5" />
+                    {/* Actions */}
+                    <div className="flex items-center justify-end gap-1.5 pt-2 border-t mt-1">
+                      <Button variant="outline" size="sm" className="h-7 gap-1 text-xs" onClick={() => openUpdate(r)}>
+                        <Pencil className="size-3" /> Edit
                       </Button>
-                      <Button variant="ghost" size="sm" className="size-8 text-destructive" onClick={() => openDelete(r)}>
-                        <Trash2 className="size-3.5" />
+                      <Button variant="outline" size="sm" className="h-7 gap-1 text-xs text-destructive hover:text-destructive" onClick={() => openDelete(r)}>
+                        <Trash2 className="size-3" /> Delete
                       </Button>
                     </div>
                   </CardContent>
@@ -498,48 +519,89 @@ export default function ReceivablesTab() {
       <Dialog open={updateOpen} onOpenChange={(open) => { setUpdateOpen(open); if (!open) setSelectedItem(null); }}>
         <DialogContent className="sm:max-w-lg max-h-[85vh] overflow-y-auto">
           <DialogHeader>
-            <DialogTitle>Update Receivable</DialogTitle>
+            <DialogTitle>Edit Receivable</DialogTitle>
             <DialogDescription>
-              Update payment status for {selectedItem?.party || ''} — {selectedItem ? formatCurrency(selectedItem.amount) : ''}
+              Update details for {selectedItem?.party || 'this receivable'}
             </DialogDescription>
           </DialogHeader>
           <div className="grid gap-4 py-2">
             <div className="grid gap-2">
-              <Label htmlFor="update-received">Received Amount</Label>
-              <div className="flex items-center gap-2">
+              <Label htmlFor="update-party">Party / Client <span className="text-red-500">*</span></Label>
+              <Input
+                id="update-party"
+                value={updateForm.party}
+                onChange={(e) => setUpdateForm({ ...updateForm, party: e.target.value })}
+                placeholder="Who owes you money"
+              />
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <div className="grid gap-2">
+                <Label htmlFor="update-amount">Total Amount <span className="text-red-500">*</span></Label>
+                <Input
+                  id="update-amount"
+                  type="number"
+                  min="0"
+                  value={updateForm.amount}
+                  onChange={(e) => setUpdateForm({ ...updateForm, amount: e.target.value })}
+                />
+              </div>
+              <div className="grid gap-2">
+                <Label htmlFor="update-received">Received Amount</Label>
                 <Input
                   id="update-received"
                   type="number"
-                  placeholder="0"
                   min="0"
-                  max={selectedItem?.amount || 999999999}
+                  max={Number(updateForm.amount) || 999999999}
                   value={updateForm.receivedAmount}
                   onChange={(e) => setUpdateForm({ ...updateForm, receivedAmount: e.target.value })}
                 />
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="sm"
-                  className="shrink-0 whitespace-nowrap"
-                  onClick={handleMarkFullyReceived}
-                >
-                  <CheckCircle2 className="size-3.5" />
-                  Mark Fully Received
-                </Button>
+              </div>
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <div className="grid gap-2">
+                <Label htmlFor="update-status">Status</Label>
+                <Select value={updateForm.status} onValueChange={(v) => setUpdateForm({ ...updateForm, status: v })}>
+                  <SelectTrigger className="w-full">
+                    <SelectValue placeholder="Select status" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {statuses.map((s) => (
+                      <SelectItem key={s} value={s} className="capitalize">{s}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="grid gap-2">
+                <Label htmlFor="update-priority">Priority</Label>
+                <Select value={updateForm.priority} onValueChange={(v) => setUpdateForm({ ...updateForm, priority: v })}>
+                  <SelectTrigger className="w-full">
+                    <SelectValue placeholder="Select priority" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {priorities.map((p) => (
+                      <SelectItem key={p} value={p} className="capitalize">{p}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
               </div>
             </div>
             <div className="grid gap-2">
-              <Label htmlFor="update-status">Status</Label>
-              <Select value={updateForm.status} onValueChange={(v) => setUpdateForm({ ...updateForm, status: v })}>
-                <SelectTrigger className="w-full">
-                  <SelectValue placeholder="Select status" />
-                </SelectTrigger>
-                <SelectContent>
-                  {statuses.map((s) => (
-                    <SelectItem key={s} value={s} className="capitalize">{s}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              <Label htmlFor="update-duedate">Due Date</Label>
+              <Input
+                id="update-duedate"
+                type="date"
+                value={updateForm.dueDate}
+                onChange={(e) => setUpdateForm({ ...updateForm, dueDate: e.target.value })}
+              />
+            </div>
+            <div className="grid gap-2">
+              <Label htmlFor="update-description">Description</Label>
+              <Input
+                id="update-description"
+                value={updateForm.description}
+                onChange={(e) => setUpdateForm({ ...updateForm, description: e.target.value })}
+                placeholder="What is this for?"
+              />
             </div>
             <div className="grid gap-2">
               <Label htmlFor="update-notes">Notes</Label>
@@ -550,6 +612,18 @@ export default function ReceivablesTab() {
                 onChange={(e) => setUpdateForm({ ...updateForm, notes: e.target.value })}
                 rows={3}
               />
+            </div>
+            <div className="flex items-center justify-end">
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                className="shrink-0 whitespace-nowrap"
+                onClick={handleMarkFullyReceived}
+              >
+                <CheckCircle2 className="size-3.5" />
+                Mark Fully Received
+              </Button>
             </div>
           </div>
           <DialogFooter>
