@@ -39,6 +39,7 @@ const SEARCHABLE_FIELDS: Record<string, string[]> = {
   note: ['title', 'content', 'category'],
   habit: ['name', 'description', 'category'],
   habitLog: ['notes'],
+  estimate: ['number', 'title', 'clientName', 'notes', 'status'],
 };
 
 // ── fetchData: main query function mirroring the Prisma API route ──
@@ -158,6 +159,16 @@ export async function fetchData(params: FetchParams): Promise<any> {
   }
 
   return { data: paginated, total, page, limit };
+}
+
+// ── Estimate number generator (EST-YYYYMMDD-XXXX) ──
+
+export async function nextEstimateNumber(type: string = 'estimate'): Promise<string> {
+  const prefix = type === 'invoice' ? 'INV' : type === 'quotation' ? 'QUO' : 'EST';
+  const datePart = new Date().toISOString().slice(0, 10).replace(/-/g, '');
+  const all = await db.estimate.toArray();
+  const seq = all.length + 1;
+  return `${prefix}-${datePart}-${String(seq).padStart(4, '0')}`;
 }
 
 // ── CRUD Operations ──

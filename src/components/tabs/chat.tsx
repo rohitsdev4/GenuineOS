@@ -13,10 +13,27 @@ import {
   AlertCircle,
   CheckCircle2,
   Copy,
+  FileText,
+  Table2,
+  Presentation,
+  ReceiptText,
+  Loader2,
+  Download,
+  X,
 } from 'lucide-react';
 import { useChat } from '@/hooks/use-data';
 import { useAppStore } from '@/stores/app-store';
 import { useSettings } from '@/hooks/use-data';
+import { useToast } from '@/hooks/use-toast';
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+} from '@/components/ui/dialog';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
@@ -65,7 +82,7 @@ function ThinkingBlock({ text }: { text: string }) {
         )}
       </button>
       {open && (
-        <div className="mt-1.5 pl-5 text-xs text-muted-foreground italic leading-relaxed whitespace-pre-wrap">
+        <div className="mt-1.5 pl-5 text-xs text-muted-foreground italic leading-relaxed whitespace-pre-wrap break-words">
           {text}
         </div>
       )}
@@ -99,7 +116,7 @@ function MessageBubble({ msg }: { msg: import('@/stores/app-store').ChatMessage 
   const isUser = msg.role === 'user';
 
   return (
-    <div className={`flex gap-3 ${isUser ? 'justify-end' : 'justify-start'}`}>
+    <div className={`flex gap-3 w-full ${isUser ? 'justify-end' : 'justify-start'}`}>
       {/* AI avatar */}
       {!isUser && (
         <div className="w-7 h-7 rounded-lg bg-emerald-500/10 flex items-center justify-center flex-shrink-0 mt-1">
@@ -108,7 +125,7 @@ function MessageBubble({ msg }: { msg: import('@/stores/app-store').ChatMessage 
       )}
 
       <div
-        className={`max-w-[80%] rounded-xl px-4 py-2.5 ${
+        className={`max-w-[80%] min-w-0 break-words rounded-xl px-4 py-2.5 ${
           isUser
             ? 'bg-emerald-600 text-white rounded-br-md'
             : 'bg-card border rounded-bl-md'
@@ -121,11 +138,11 @@ function MessageBubble({ msg }: { msg: import('@/stores/app-store').ChatMessage 
 
         {/* Content */}
         {!isUser ? (
-          <div className="text-sm prose prose-sm dark:prose-invert max-w-none prose-p:my-1 prose-headings:my-2 prose-ul:my-1 prose-ol:my-1 prose-li:my-0.5 prose-pre:my-2 prose-code:px-1 prose-code:py-0.5 prose-code:before:content-none prose-code:after:content-none [&>*:first-child]:mt-0 [&>*:last-child]:mb-0">
+          <div className="text-sm prose prose-sm dark:prose-invert max-w-none prose-p:my-1 prose-headings:my-2 prose-ul:my-1 prose-ol:my-1 prose-li:my-0.5 prose-pre:my-2 prose-pre:overflow-x-auto prose-pre:max-w-full prose-code:px-1 prose-code:py-0.5 prose-code:before:content-none prose-code:after:content-none [&>*:first-child]:mt-0 [&>*:last-child]:mb-0">
             <ReactMarkdown>{msg.content}</ReactMarkdown>
           </div>
         ) : (
-          <p className="text-sm whitespace-pre-wrap">{msg.content}</p>
+          <p className="text-sm whitespace-pre-wrap break-words">{msg.content}</p>
         )}
 
         {/* Meta row */}
@@ -162,13 +179,13 @@ function MessageBubble({ msg }: { msg: import('@/stores/app-store').ChatMessage 
 
         {/* Display Tool Result if it's fetched data */}
         {!isUser && msg.toolResult && msg.toolResult.data && Array.isArray(msg.toolResult.data) && msg.toolResult.data.length > 0 && (
-          <div className="mt-3 text-xs bg-muted/30 rounded-lg p-2 max-h-60 overflow-y-auto border border-emerald-500/20">
+          <div className="mt-3 text-xs bg-muted/30 rounded-lg p-2 max-h-60 overflow-auto break-words border border-emerald-500/20">
              {msg.toolResult.data.map((item: any) => (
                 <div key={item.id} className="border-b last:border-0 border-border/50 py-1.5 px-1">
                   {Object.entries(item)
                     .filter(([k, v]) => !['id', 'createdAt', 'updatedAt', 'siteId', 'managerId'].includes(k) && v !== null && v !== '')
                     .map(([k, v]) => (
-                    <span key={k} className="mr-3 inline-block">
+                    <span key={k} className="mr-3 inline-block align-top break-words">
                       <span className="text-muted-foreground font-medium capitalize">{k.replace(/([A-Z])/g, ' $1').trim()}:</span>{' '}
                       <span className="text-foreground">{String(v)}</span>
                     </span>
@@ -298,6 +315,10 @@ export default function ChatTab() {
   const [input, setInput] = useState('');
 
   const [memoryOpen, setMemoryOpen] = useState(false);
+  const [genOpen, setGenOpen] = useState(false);
+  const [genKind, setGenKind] = useState<'invoice' | 'estimate' | 'xlsx' | 'pptx'>('invoice');
+  const [genForm, setGenForm] = useState<GenForm>(emptyGenForm('invoice'));
+  const [genBusy, setGenBusy] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
@@ -325,6 +346,12 @@ export default function ChatTab() {
       e.preventDefault();
       handleSend();
     }
+  };
+
+  const openGen = (kind: 'invoice' | 'estimate' | 'xlsx' | 'pptx') => {
+    setGenKind(kind);
+    setGenForm(emptyGenForm(kind));
+    setGenOpen(true);
   };
 
   const handleTextareaChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
@@ -458,6 +485,14 @@ export default function ChatTab() {
 
       {/* ── Input area ──────────────────────────────────────────── */}
       <div className="p-3 flex-shrink-0">
+        {/* Generate toolbar */}
+        <div className="mb-2 flex flex-wrap items-center gap-1.5">
+          <span className="text-[11px] text-muted-foreground mr-0.5">Generate:</span>
+          <GenButton icon={<ReceiptText className="size-3.5" />} label="Invoice" onClick={() => openGen('invoice')} />
+          <GenButton icon={<FileText className="size-3.5" />} label="Estimate" onClick={() => openGen('estimate')} />
+          <GenButton icon={<Table2 className="size-3.5" />} label="Excel" onClick={() => openGen('xlsx')} />
+          <GenButton icon={<Presentation className="size-3.5" />} label="PPT" onClick={() => openGen('pptx')} />
+        </div>
         {!hasApiKey && (
           <div className="mb-2 flex items-center gap-1.5 text-[11px] text-amber-500">
             <AlertCircle className="w-3 h-3" />
@@ -486,6 +521,267 @@ export default function ChatTab() {
           </Button>
         </div>
       </div>
+
+      <GenerateDialog
+        open={genOpen}
+        onOpenChange={setGenOpen}
+        kind={genKind}
+        form={genForm}
+        setForm={setGenForm}
+        busy={genBusy}
+        setBusy={setGenBusy}
+        settings={settings}
+      />
     </div>
+  );
+}
+
+/* ── File generation toolbar + dialog (invoice / estimate / Excel / PPT) ── */
+
+function GenButton({ icon, label, onClick }: { icon: React.ReactNode; label: string; onClick: () => void }) {
+  return (
+    <Button type="button" variant="outline" size="sm" onClick={onClick} className="h-7 gap-1.5 rounded-full px-2.5 text-[11px] text-muted-foreground hover:text-foreground">
+      {icon}
+      {label}
+    </Button>
+  );
+}
+
+interface GenForm {
+  docNumber: string;
+  date: string;
+  clientName: string;
+  businessName: string;
+  itemsText: string;
+  taxRate: number;
+  discount: number;
+  notes: string;
+  fileName: string;
+  sheetName: string;
+  headersText: string;
+  rowsText: string;
+  title: string;
+  subtitle: string;
+  slidesText: string;
+}
+
+function emptyGenForm(kind: string): GenForm {
+  const today = new Date().toISOString().slice(0, 10);
+  if (kind === 'xlsx') {
+    return {
+      docNumber: '', date: today, clientName: '', businessName: '', itemsText: '', taxRate: 0, discount: 0, notes: '',
+      fileName: 'data-sheet', sheetName: 'Sheet1', headersText: 'Item, Qty, Rate',
+      rowsText: 'Laptop, 2, 45000\nChair, 5, 3500\nTotal, , =SUM(B2:B3)',
+      title: '', subtitle: '', slidesText: '',
+    };
+  }
+  if (kind === 'pptx') {
+    return {
+      docNumber: '', date: today, clientName: '', businessName: '', itemsText: '', taxRate: 0, discount: 0, notes: '',
+      fileName: '', sheetName: '', headersText: '', rowsText: '',
+      title: 'Business Presentation', subtitle: today,
+      slidesText: 'Agenda::Revenue growth|New markets|Roadmap\nFinancials::1.2 Cr total|18% YoY growth|Top: North zone',
+    };
+  }
+  return {
+    docNumber: '', date: today, clientName: '', businessName: '', itemsText: 'Laptop | 2 | 45000\nChair | 5 | 3500',
+    taxRate: 18, discount: 0, notes: '', fileName: '', sheetName: '', headersText: '', rowsText: '',
+    title: '', subtitle: '', slidesText: '',
+  };
+}
+
+function buildGenPayload(kind: string, form: GenForm, settings: any) {
+  if (kind === 'xlsx') {
+    const headers = form.headersText.split(',').map((h) => h.trim()).filter(Boolean);
+    const rows: (string | number)[][] = form.rowsText
+      .split('\n')
+      .map((line) => line.split(',').map((cell) => {
+        const t = cell.trim();
+        if (t === '') return '';
+        if (t.startsWith('=')) return t; // formula
+        const n = Number(t.replace(/,/g, ''));
+        return t !== '' && !isNaN(n) ? n : t;
+      }))
+      .filter((r) => r.some((c) => c !== '' && c !== 0));
+    return {
+      fileName: form.fileName || 'data-sheet',
+      sheets: [{ name: form.sheetName || 'Sheet1', headers, rows }],
+    };
+  }
+  if (kind === 'pptx') {
+    const slides = form.slidesText
+      .split('\n')
+      .map((line) => {
+        const [title, bulletsPart] = line.split('::');
+        return { title: (title || '').trim(), bullets: (bulletsPart || '').split('|').map((b) => b.trim()).filter(Boolean) };
+      })
+      .filter((s) => s.title);
+    return { title: form.title || 'Presentation', subtitle: form.subtitle || '', slides };
+  }
+  const items = form.itemsText
+    .split('\n')
+    .map((line) => line.split('|').map((p) => p.trim()))
+    .filter((parts) => parts[0])
+    .map((parts) => ({
+      description: parts[0],
+      qty: Number(parts[1]) || 1,
+      rate: Number((parts[2] || '').replace(/,/g, '')) || 0,
+    }));
+  return {
+    docNumber: form.docNumber || (kind === 'invoice' ? 'INV-' + Date.now().toString().slice(-6) : 'EST-' + Date.now().toString().slice(-6)),
+    date: form.date || new Date().toISOString().slice(0, 10),
+    dueDays: kind === 'invoice' ? 15 : undefined,
+    business: { name: form.businessName || settings?.businessName || 'GenuineOS Business', address: settings?.businessAddress || undefined, phone: settings?.businessPhone || undefined, email: settings?.businessEmail || undefined },
+    client: { name: form.clientName || 'Walk-in Client' },
+    items,
+    taxRate: form.taxRate,
+    discount: form.discount,
+    notes: form.notes || undefined,
+  };
+}
+
+function GenerateDialog({ open, onOpenChange, kind, form, setForm, busy, setBusy, settings }: {
+  open: boolean;
+  onOpenChange: (v: boolean) => void;
+  kind: 'invoice' | 'estimate' | 'xlsx' | 'pptx';
+  form: GenForm;
+  setForm: React.Dispatch<React.SetStateAction<GenForm>>;
+  busy: boolean;
+  setBusy: (v: boolean) => void;
+  settings: any;
+}) {
+  const { toast } = useToast();
+  const set = (patch: Partial<GenForm>) => setForm((f) => ({ ...f, ...patch }));
+
+  const handleGenerate = async () => {
+    setBusy(true);
+    try {
+      const payload = buildGenPayload(kind, form, settings);
+      const res = await fetch('/api/files/generate', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ format: kind, payload }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Generation failed');
+      const a = document.createElement('a');
+      a.href = `data:${data.mime};base64,${data.base64}`;
+      a.download = data.filename || 'file';
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      toast({ title: 'Downloaded', description: `${data.filename} generated locally.` });
+      onOpenChange(false);
+    } catch (e: any) {
+      toast({ title: 'Error', description: e.message || 'Failed to generate file.', variant: 'destructive' });
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const kindTitle = kind === 'xlsx' ? 'Excel Sheet' : kind === 'pptx' ? 'PowerPoint' : kind === 'invoice' ? 'Invoice' : 'Estimate';
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-xl">
+        <DialogHeader>
+          <DialogTitle className="flex items-center gap-2">
+            {kind === 'xlsx' ? <Table2 className="size-4 text-emerald-500" /> : kind === 'pptx' ? <Presentation className="size-4 text-emerald-500" /> : <ReceiptText className="size-4 text-emerald-500" />}
+            Generate {kindTitle}
+          </DialogTitle>
+        </DialogHeader>
+
+        <div className="space-y-3">
+          {kind === 'invoice' || kind === 'estimate' ? (
+            <>
+              <div className="grid grid-cols-2 gap-3">
+                <div className="space-y-1.5">
+                  <Label className="text-xs">Document Number</Label>
+                  <Input value={form.docNumber} onChange={(e) => set({ docNumber: e.target.value })} placeholder="Auto" className="font-mono text-xs" />
+                </div>
+                <div className="space-y-1.5">
+                  <Label className="text-xs">Date</Label>
+                  <Input type="date" value={form.date} onChange={(e) => set({ date: e.target.value })} className="text-xs" />
+                </div>
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                <div className="space-y-1.5">
+                  <Label className="text-xs">Client Name</Label>
+                  <Input value={form.clientName} onChange={(e) => set({ clientName: e.target.value })} placeholder="Ramesh Kumar" className="text-xs" />
+                </div>
+                <div className="space-y-1.5">
+                  <Label className="text-xs">Your Business Name</Label>
+                  <Input value={form.businessName} onChange={(e) => set({ businessName: e.target.value })} placeholder={settings?.businessName || 'GenuineOS Business'} className="text-xs" />
+                </div>
+              </div>
+              <div className="space-y-1.5">
+                <Label className="text-xs">Line Items <span className="text-muted-foreground">(one per line: description | qty | rate)</span></Label>
+                <Textarea value={form.itemsText} onChange={(e) => set({ itemsText: e.target.value })} rows={4} className="font-mono text-xs" placeholder="Cement | 50 | 380&#10;Steel rods | 20 | 4500" />
+              </div>
+              <div className="grid grid-cols-3 gap-3">
+                <div className="space-y-1.5">
+                  <Label className="text-xs">Tax %</Label>
+                  <Input type="number" min={0} max={100} value={form.taxRate} onChange={(e) => set({ taxRate: Number(e.target.value) || 0 })} className="text-xs tabular-nums" />
+                </div>
+                <div className="space-y-1.5">
+                  <Label className="text-xs">Discount</Label>
+                  <Input type="number" min={0} value={form.discount} onChange={(e) => set({ discount: Number(e.target.value) || 0 })} className="text-xs tabular-nums" />
+                </div>
+                <div className="space-y-1.5">
+                  <Label className="text-xs">Notes</Label>
+                  <Input value={form.notes} onChange={(e) => set({ notes: e.target.value })} placeholder="Payment terms..." className="text-xs" />
+                </div>
+              </div>
+            </>
+          ) : kind === 'xlsx' ? (
+            <>
+              <div className="grid grid-cols-3 gap-3">
+                <div className="space-y-1.5">
+                  <Label className="text-xs">File Name</Label>
+                  <Input value={form.fileName} onChange={(e) => set({ fileName: e.target.value })} className="font-mono text-xs" />
+                </div>
+                <div className="space-y-1.5">
+                  <Label className="text-xs">Sheet Name</Label>
+                  <Input value={form.sheetName} onChange={(e) => set({ sheetName: e.target.value })} className="text-xs" />
+                </div>
+                <div className="space-y-1.5">
+                  <Label className="text-xs">Headers <span className="text-muted-foreground">(comma)</span></Label>
+                  <Input value={form.headersText} onChange={(e) => set({ headersText: e.target.value })} className="font-mono text-xs" />
+                </div>
+              </div>
+              <div className="space-y-1.5">
+                <Label className="text-xs">Rows <span className="text-muted-foreground">(one row per line, comma-separated; formulas allowed e.g. =SUM(B2:B3))</span></Label>
+                <Textarea value={form.rowsText} onChange={(e) => set({ rowsText: e.target.value })} rows={6} className="font-mono text-xs" />
+              </div>
+            </>
+          ) : (
+            <>
+              <div className="grid grid-cols-2 gap-3">
+                <div className="space-y-1.5">
+                  <Label className="text-xs">Title</Label>
+                  <Input value={form.title} onChange={(e) => set({ title: e.target.value })} className="text-xs" />
+                </div>
+                <div className="space-y-1.5">
+                  <Label className="text-xs">Subtitle</Label>
+                  <Input value={form.subtitle} onChange={(e) => set({ subtitle: e.target.value })} className="text-xs" />
+                </div>
+              </div>
+              <div className="space-y-1.5">
+                <Label className="text-xs">Slides <span className="text-muted-foreground">(one per line: Title::bullet1|bullet2)</span></Label>
+                <Textarea value={form.slidesText} onChange={(e) => set({ slidesText: e.target.value })} rows={6} className="font-mono text-xs" />
+              </div>
+            </>
+          )}
+        </div>
+
+        <DialogFooter>
+          <Button variant="outline" onClick={() => onOpenChange(false)}>Cancel</Button>
+          <Button onClick={handleGenerate} disabled={busy} className="gap-1.5">
+            {busy ? <Loader2 className="size-3.5 animate-spin" /> : <Download className="size-3.5" />}
+            {busy ? 'Generating...' : 'Generate & Download'}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
   );
 }

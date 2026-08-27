@@ -5,6 +5,7 @@ import {
   Palette, Building2, Bot, Bell, Sheet, Moon, Sun, Check, Save, RefreshCw,
   Eye, EyeOff, Users, Plus, Pencil, Trash2, Loader2, Brain, Clock,
   Shield, Zap, AlertCircle, Settings, CopyX, ChevronUp, ChevronDown,
+  CheckCircle2, Gauge, RotateCcw,
 } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -48,10 +49,9 @@ const accentColors = [
 const currencies = ['₹', '$', '€', '£'];
 const nimModels = [
   { value: 'z-ai/glm-5.1', label: 'GLM 5.1 — Z.ai (Recommended)' },
+  { value: 'meta/llama-3.3-70b-instruct', label: 'Llama 3.3 70B Instruct' },
   { value: 'meta/llama-3.1-8b-instruct', label: 'Llama 3.1 8B Instruct (Ultra Fast)' },
-  { value: 'deepseek-ai/deepseek-3.2', label: 'DeepSeek 3.2' },
-  { value: 'minimax/minimax-m2.7', label: 'MiniMax M2.7' },
-  { value: 'moonshotai/kimi-2.5', label: 'Kimi 2.5 — Moonshot AI' },
+  { value: 'deepseek-ai/deepseek-r1', label: 'DeepSeek R1 (Reasoning)' },
   { value: 'gpt-oss/gpt-oss-120b', label: 'GPT-OSS 120B (MoE)' },
   { value: 'nvidia/nemotron-4-340b-instruct', label: 'Nemotron 4 340B Instruct' },
 ];
@@ -104,7 +104,10 @@ export default function SettingsTab() {
   const nvidiaBaseUrl = useAppStore((s) => s.nvidiaBaseUrl);
   const setNvidiaBaseUrl = useAppStore((s) => s.setNvidiaBaseUrl);
 
-  const [showAdvanced, setShowAdvanced] = useState(false);
+  const [rateLimits, setRateLimits] = useState({ rps: 2, rpm: 60 });
+  const [verifyState, setVerifyState] = useState<'idle' | 'loading' | 'success' | 'error'>('idle');
+  const [verifyResult, setVerifyResult] = useState<{ model: string; latencyMs: number; note?: string } | null>(null);
+  const [verifyError, setVerifyError] = useState('');
 
   const s = settings as Record<string, any> | undefined;
 
@@ -148,6 +151,7 @@ export default function SettingsTab() {
         temperature: s.temperature ?? 0.7,
         maxTokens: s.maxTokens ?? 8192,
       });
+      setRateLimits({ rps: s.rateLimitRps ?? 2, rpm: s.rateLimitRpm ?? 60 });
       setSheets({ sheetId: s.googleSheetId || '', apiKey: s.googleApiKey || '' });
       setAppearance({
         theme: s.theme || 'dark',
@@ -201,17 +205,63 @@ export default function SettingsTab() {
 
   const saveLlm = useCallback(() => {
     // Save NVIDIA NIM settings (already auto-saved to localStorage via Zustand)
-    // Also persist temperature/maxTokens/thinking to IndexedDB settings
+    // Also persist temperature/maxTokens/thinking/rate limits to IndexedDB settings
     updateSettings({
       temperature: llm.temperature,
       maxTokens: llm.maxTokens,
       thinkingEnabled,
+      rateLimitRps: rateLimits.rps,
+      rateLimitRpm: rateLimits.rpm,
+      llmProvider: 'nvidia-nim',
+      apiKey: nvidiaApiKey || null,
+      model: nvidiaModel,
     }).then(() => {
       showToast('Saved', 'AI configuration updated.');
     }).catch(() => {
       showToast('Error', 'Failed to save AI config.', 'destructive');
     });
-  }, [llm, thinkingEnabled, updateSettings, showToast]);
+  }, [llm, thinkingEnabled, rateLimits, nvidiaApiKey, nvidiaModel, updateSettings, showToast]);
+
+  // ── Verify AI connection (tests baseURL + model + key BEFORE saving) ──
+
+  const handleVerify = useCallback(async () => {
+    if (!nvidiaApiKey.trim()) {
+      showToast('Error', 'Enter your API key first.', 'destructive');
+      return;
+    }
+    setVerifyState('loading');
+    setVerifyResult(null);
+    setVerifyError('');
+    try {
+      const res = await fetch('/api/chat/verify', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ baseUrl: nvidiaBaseUrl, model: nvidiaModel, apiKey: nvidiaApiKey }),
+      });
+      const data = await res.json();
+      if (data.ok) {
+        setVerifyResult({ model: data.model, latencyMs: data.latencyMs, note: data.note });
+        setVerifyState('success');
+      } else {
+        setVerifyError(data.error || 'Verification failed');
+        setVerifyState('error');
+      }
+    } catch {
+      setVerifyError('Could not reach the server. Try again.');
+      setVerifyState('error');
+    }
+  }, [nvidiaApiKey, nvidiaBaseUrl, nvidiaModel, showToast]);
+
+  const resetAiSettings = useCallback(() => {
+    setNvidiaBaseUrl('https://integrate.api.nvidia.com/v1');
+    setNvidiaModel('z-ai/glm-5.1');
+    setNvidiaApiKey('');
+    setLlm({ temperature: 0.7, maxTokens: 4096 });
+    setRateLimits({ rps: 2, rpm: 60 });
+    setVerifyState('idle');
+    setVerifyResult(null);
+    setVerifyError('');
+    showToast('Reset', 'AI settings restored to defaults. Click Save to persist.');
+  }, [setNvidiaBaseUrl, setNvidiaModel, setNvidiaApiKey, showToast]);
 
   // ── Appearance save ─────────────────────────────────────────────────────────
 
@@ -682,171 +732,244 @@ export default function SettingsTab() {
 
           {/* ═══════════════════ Tab 3: LLM & AI ═══════════════════ */}
           <TabsContent value="llm">
-            <Card>
-              <CardHeader>
-                <CardTitle className="text-base flex items-center gap-2">
-                  <Bot className="size-4 text-emerald-500" /> AI Configuration
-                </CardTitle>
-                <CardDescription>Configure the NVIDIA NIM AI model for your smart assistant</CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-5">
-                <div className="rounded-lg border bg-muted/30 p-3">
-                  <p className="text-xs text-muted-foreground leading-relaxed">
-                    Uses <span className="font-medium text-foreground">NVIDIA NIM Free Endpoints</span>. Get your API key from{' '}
-                    <a
-                      href="https://build.nvidia.com/"
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="text-emerald-500 underline underline-offset-2 hover:text-emerald-400"
-                    >
-                      NVIDIA Build
-                    </a>.
-                    All models listed below are free to use for development — no credit card required.
-                  </p>
-                </div>
-
-                <div className="space-y-2">
-                  <Label>Model</Label>
-                  <Select
-                    value={nvidiaModel || 'z-ai/glm-5.1'}
-                    onValueChange={(v) => setNvidiaModel(v)}
-                  >
-                    <SelectTrigger className="w-full">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {nimModels.map((m) => (
-                        <SelectItem key={m.value} value={m.value}>
-                          {m.label}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                  <p className="text-[11px] text-muted-foreground">GLM 5.1 by Z.ai is recommended — excellent for reasoning, coding and agentic tasks</p>
-                </div>
-
-                <div className="space-y-2">
-                  <Label htmlFor="nvidia-key">
-                    NVIDIA NIM API Key <span className="text-red-500">*</span>
-                  </Label>
-                  <div className="relative">
-                    <Input
-                      id="nvidia-key"
-                      type={showApiKey ? 'text' : 'password'}
-                      value={nvidiaApiKey}
-                      onChange={(e) => setNvidiaApiKey(e.target.value)}
-                      placeholder="nvapi-..."
-                      className="pr-10"
-                    />
-                    <Button
-                      type="button"
-                      variant="ghost"
-                      size="icon"
-                      className="absolute right-0 top-0 size-9"
-                      onClick={() => setShowApiKey((v) => !v)}
-                    >
-                      {showApiKey ? <EyeOff className="size-4" /> : <Eye className="size-4" />}
-                    </Button>
-                  </div>
-                  {nvidiaApiKey && (
-                    <p className="text-[11px] text-emerald-500 flex items-center gap-1">
-                      <Check className="size-3" /> API key configured
+            <div className="space-y-4">
+              <Card>
+                <CardHeader>
+                  <CardTitle className="text-base flex items-center gap-2">
+                    <Bot className="size-4 text-emerald-500" /> AI Connection
+                  </CardTitle>
+                  <CardDescription>Enter your AI provider details and verify them before saving</CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  <div className="rounded-lg border bg-muted/30 p-3">
+                    <p className="text-xs text-muted-foreground leading-relaxed">
+                      Works with <span className="font-medium text-foreground">NVIDIA NIM (free)</span>, OpenRouter, Groq — any OpenAI-compatible endpoint.
+                      Get a free key from{' '}
+                      <a
+                        href="https://build.nvidia.com/"
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="text-emerald-500 underline underline-offset-2 hover:text-emerald-400"
+                      >
+                        NVIDIA Build
+                      </a>{' '}
+                      — no credit card required.
                     </p>
-                  )}
-                </div>
-
-                <div className="pt-2">
-                  <Button variant="outline" size="sm" onClick={() => setShowAdvanced(!showAdvanced)} className="w-full justify-between">
-                    <span>Advanced Settings</span>
-                    {showAdvanced ? <ChevronUp className="size-4" /> : <ChevronDown className="size-4" />}
-                  </Button>
-                </div>
-
-                {showAdvanced && (
-                  <div className="space-y-4 p-3 border rounded-lg bg-muted/20">
-                    <div className="space-y-2">
-                      <Label htmlFor="nvidia-base-url">Base URL</Label>
-                      <Input
-                        id="nvidia-base-url"
-                        value={nvidiaBaseUrl}
-                        onChange={(e) => setNvidiaBaseUrl(e.target.value)}
-                        placeholder="https://integrate.api.nvidia.com/v1"
-                      />
-                    </div>
-                    <div className="space-y-2">
-                      <Label htmlFor="nvidia-model">Model Name</Label>
-                      <Input
-                        id="nvidia-model"
-                        value={nvidiaModel}
-                        onChange={(e) => setNvidiaModel(e.target.value)}
-                        placeholder="z-ai/glm-5.1"
-                      />
-                    </div>
                   </div>
-                )}
 
-                <div className="space-y-3">
-                  <div className="flex items-center justify-between">
-                    <Label className="text-sm font-medium">Temperature</Label>
-                    <span className="text-xs text-muted-foreground tabular-nums font-mono">
-                      {llm.temperature.toFixed(2)}
-                    </span>
+                  <div className="space-y-2">
+                    <Label htmlFor="nvidia-base-url">Base URL</Label>
+                    <Input
+                      id="nvidia-base-url"
+                      value={nvidiaBaseUrl}
+                      onChange={(e) => setNvidiaBaseUrl(e.target.value)}
+                      placeholder="https://integrate.api.nvidia.com/v1"
+                      className="font-mono text-xs"
+                    />
                   </div>
-                  <input
-                    type="range"
-                    min={0}
-                    max={1}
-                    step={0.05}
-                    value={llm.temperature}
-                    onChange={(e) => setLlm((p) => ({ ...p, temperature: parseFloat(e.target.value) }))}
-                    className="w-full h-2 rounded-full appearance-none cursor-pointer bg-muted accent-emerald-500"
-                  />
-                  <div className="flex justify-between text-[10px] text-muted-foreground">
-                    <span>Precise (0)</span>
-                    <span>Creative (1)</span>
+
+                  <div className="space-y-2">
+                    <Label>Model</Label>
+                    <Select value={nvidiaModel || 'z-ai/glm-5.1'} onValueChange={(v) => setNvidiaModel(v)}>
+                      <SelectTrigger className="w-full">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {nimModels.map((m) => (
+                          <SelectItem key={m.value} value={m.value}>
+                            {m.label}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    <Input
+                      value={nvidiaModel}
+                      onChange={(e) => setNvidiaModel(e.target.value)}
+                      placeholder="Custom model ID (e.g. z-ai/glm-5.1)"
+                      className="font-mono text-xs"
+                    />
+                    <p className="text-[11px] text-muted-foreground">Pick a preset or type any exact model ID from build.nvidia.com/models</p>
                   </div>
-                </div>
 
-                <div className="space-y-2">
-                  <Label htmlFor="llm-tokens">Max Output Tokens</Label>
-                  <Input
-                    id="llm-tokens"
-                    type="number"
-                    value={llm.maxTokens}
-                    onChange={(e) => setLlm((p) => ({ ...p, maxTokens: parseInt(e.target.value) || 8192 }))}
-                    min={256}
-                    max={65536}
-                    placeholder="8192"
-                  />
-                  <p className="text-[11px] text-muted-foreground">Maximum response length (256–65536). Higher values use more quota.</p>
-                </div>
-
-                <Separator />
-
-                <div className="flex items-center justify-between">
-                  <div className="space-y-0.5">
-                    <Label className="text-sm font-medium flex items-center gap-1.5">
-                      <Brain className="size-3.5 text-emerald-500" /> Thinking Mode
+                  <div className="space-y-2">
+                    <Label htmlFor="nvidia-key">
+                      API Key <span className="text-red-500">*</span>
                     </Label>
-                    <p className="text-xs text-muted-foreground">Extended reasoning for complex queries (uses more tokens)</p>
+                    <div className="relative">
+                      <Input
+                        id="nvidia-key"
+                        type={showApiKey ? 'text' : 'password'}
+                        value={nvidiaApiKey}
+                        onChange={(e) => setNvidiaApiKey(e.target.value)}
+                        placeholder="nvapi-..."
+                        className="pr-10 font-mono text-xs"
+                      />
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="icon"
+                        className="absolute right-0 top-0 size-9"
+                        onClick={() => setShowApiKey((v) => !v)}
+                      >
+                        {showApiKey ? <EyeOff className="size-4" /> : <Eye className="size-4" />}
+                      </Button>
+                    </div>
+                    {nvidiaApiKey && (
+                      <p className="text-[11px] text-emerald-500 flex items-center gap-1">
+                        <Check className="size-3" /> API key configured
+                      </p>
+                    )}
                   </div>
-                  <Switch
-                    checked={thinkingEnabled}
-                    onCheckedChange={(v) => setThinkingEnabled(v)}
-                  />
-                </div>
 
-                <Separator />
+                  {/* ── Connection Test (Verify) ── */}
+                  <div className="rounded-lg border p-3 space-y-2">
+                    <div className="flex items-center justify-between gap-2">
+                      <div className="min-w-0">
+                        <p className="text-sm font-medium flex items-center gap-1.5">
+                          <Zap className="size-3.5 text-emerald-500" /> Connection Test
+                        </p>
+                        <p className="text-[11px] text-muted-foreground mt-0.5">Pings the endpoint with your current key — nothing is saved yet.</p>
+                      </div>
+                      <Button
+                        size="sm"
+                        onClick={handleVerify}
+                        disabled={verifyState === 'loading' || !nvidiaApiKey.trim()}
+                        className="gap-1.5 shrink-0"
+                      >
+                        {verifyState === 'loading' ? <Loader2 className="size-3.5 animate-spin" /> : <Zap className="size-3.5" />}
+                        {verifyState === 'loading' ? 'Verifying...' : 'Verify Connection'}
+                      </Button>
+                    </div>
+                    {verifyState === 'success' && verifyResult && (
+                      <div className="flex items-start gap-2 rounded-md bg-emerald-500/10 border border-emerald-500/20 p-2.5 text-xs text-emerald-600 dark:text-emerald-400">
+                        <CheckCircle2 className="size-3.5 mt-0.5 shrink-0" />
+                        <div className="min-w-0">
+                          <p className="font-medium">Connected ✓</p>
+                          <p className="mt-0.5 break-words">
+                            Model: {verifyResult.model} · Latency: {verifyResult.latencyMs}ms{verifyResult.note ? ` · ${verifyResult.note}` : ''}
+                          </p>
+                        </div>
+                      </div>
+                    )}
+                    {verifyState === 'error' && (
+                      <div className="flex items-start gap-2 rounded-md bg-red-500/10 border border-red-500/20 p-2.5 text-xs text-red-500">
+                        <AlertCircle className="size-3.5 mt-0.5 shrink-0" />
+                        <p className="break-words">{verifyError}</p>
+                      </div>
+                    )}
+                  </div>
+                </CardContent>
+              </Card>
 
-                <div className="flex justify-end">
-                  <Button size="sm" onClick={saveLlm} disabled={isUpdating} className="gap-1.5 min-w-[120px]">
-                    {isUpdating ? <Loader2 className="size-3.5 animate-spin" /> : <Save className="size-3.5" />}
-                    {isUpdating ? 'Saving...' : 'Save AI Config'}
-                  </Button>
-                </div>
-              </CardContent>
-            </Card>
+              <Card>
+                <CardHeader>
+                  <CardTitle className="text-base flex items-center gap-2">
+                    <Gauge className="size-4 text-emerald-500" /> Rate Limits
+                  </CardTitle>
+                  <CardDescription>Protect your free-tier quota from accidental bursts</CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                      <Label htmlFor="rl-rps">Requests per second</Label>
+                      <Input
+                        id="rl-rps"
+                        type="number"
+                        min={1}
+                        max={20}
+                        value={rateLimits.rps}
+                        onChange={(e) => setRateLimits((p) => ({ ...p, rps: Math.min(20, Math.max(1, parseInt(e.target.value) || 1)) }))}
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="rl-rpm">Requests per minute</Label>
+                      <Input
+                        id="rl-rpm"
+                        type="number"
+                        min={1}
+                        max={600}
+                        value={rateLimits.rpm}
+                        onChange={(e) => setRateLimits((p) => ({ ...p, rpm: Math.min(600, Math.max(1, parseInt(e.target.value) || 1)) }))}
+                      />
+                    </div>
+                  </div>
+                  <div className="rounded-lg border bg-emerald-500/5 p-3">
+                    <p className="text-xs text-muted-foreground flex items-start gap-2">
+                      <Shield className="size-3.5 text-emerald-500 mt-0.5 shrink-0" />
+                      Applied automatically to every AI chat request. Defaults: 2 req/sec, 60 req/min — safe for free endpoints, adjustable anytime.
+                    </p>
+                  </div>
+                </CardContent>
+              </Card>
+
+              <Card>
+                <CardHeader>
+                  <CardTitle className="text-base flex items-center gap-2">
+                    <Brain className="size-4 text-emerald-500" /> Response Settings
+                  </CardTitle>
+                  <CardDescription>How the AI writes and thinks</CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  <div className="space-y-3">
+                    <div className="flex items-center justify-between">
+                      <Label className="text-sm font-medium">Temperature</Label>
+                      <span className="text-xs text-muted-foreground tabular-nums font-mono">{llm.temperature.toFixed(2)}</span>
+                    </div>
+                    <input
+                      type="range"
+                      min={0}
+                      max={1}
+                      step={0.05}
+                      value={llm.temperature}
+                      onChange={(e) => setLlm((p) => ({ ...p, temperature: parseFloat(e.target.value) }))}
+                      className="w-full h-2 rounded-full appearance-none cursor-pointer bg-muted accent-emerald-500"
+                    />
+                    <div className="flex justify-between text-[10px] text-muted-foreground">
+                      <span>Precise (0)</span>
+                      <span>Creative (1)</span>
+                    </div>
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label htmlFor="llm-tokens">Max Output Tokens</Label>
+                    <Input
+                      id="llm-tokens"
+                      type="number"
+                      value={llm.maxTokens}
+                      onChange={(e) => setLlm((p) => ({ ...p, maxTokens: parseInt(e.target.value) || 8192 }))}
+                      min={256}
+                      max={65536}
+                      placeholder="8192"
+                    />
+                    <p className="text-[11px] text-muted-foreground">Maximum response length (256-65536). Higher values use more quota.</p>
+                  </div>
+
+                  <Separator />
+
+                  <div className="flex items-center justify-between">
+                    <div className="space-y-0.5">
+                      <Label className="text-sm font-medium flex items-center gap-1.5">
+                        <Brain className="size-3.5 text-emerald-500" /> Thinking Mode
+                      </Label>
+                      <p className="text-xs text-muted-foreground">Extended reasoning for complex queries (uses more tokens)</p>
+                    </div>
+                    <Switch checked={thinkingEnabled} onCheckedChange={(v) => setThinkingEnabled(v)} />
+                  </div>
+                </CardContent>
+              </Card>
+
+              <div className="flex justify-end gap-2">
+                <Button variant="outline" size="sm" onClick={resetAiSettings} className="gap-1.5">
+                  <RotateCcw className="size-3.5" /> Reset
+                </Button>
+                <Button size="sm" onClick={saveLlm} disabled={isUpdating} className="gap-1.5 min-w-[140px]">
+                  {isUpdating ? <Loader2 className="size-3.5 animate-spin" /> : <Save className="size-3.5" />}
+                  {isUpdating ? 'Saving...' : 'Save AI Config'}
+                </Button>
+              </div>
+            </div>
           </TabsContent>
+
 
           {/* ═══════════════════ Tab 4: Google Sheets ═════════════════ */}
           <TabsContent value="sheets">

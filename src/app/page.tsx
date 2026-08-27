@@ -25,6 +25,7 @@ import {
   IndianRupee,
   Receipt,
   HandCoins,
+  ReceiptText,
   CheckSquare,
   HardHat,
   Package,
@@ -61,6 +62,7 @@ const HabitsTab = lazy(() => import('@/components/tabs/habits'));
 const CalendarTab = lazy(() => import('@/components/tabs/calendar'));
 const ReportsTab = lazy(() => import('@/components/tabs/reports'));
 const ChatTab = lazy(() => import('@/components/tabs/chat'));
+const EstimatesTab = lazy(() => import('@/components/tabs/estimates'));
 const SettingsTab = lazy(() => import('@/components/tabs/settings'));
 
 // ── Navigation Configuration ─────────────────────────────────────────
@@ -91,6 +93,7 @@ const navGroups: NavGroup[] = [
       { id: 'payments', label: 'Payments', icon: IndianRupee },
       { id: 'expenses', label: 'Expenses', icon: Receipt },
       { id: 'receivables', label: 'Receivables', icon: HandCoins },
+      { id: 'estimates', label: 'Estimates & Invoices', icon: ReceiptText },
     ],
   },
   {
@@ -141,6 +144,7 @@ const tabComponentMap: Record<string, React.ComponentType> = {
   calendar: CalendarTab,
   reports: ReportsTab,
   chat: ChatTab,
+  estimates: EstimatesTab,
   settings: SettingsTab,
 };
 
@@ -246,7 +250,7 @@ function SidebarNav({ onItemClick }: { onItemClick?: () => void }) {
 
 function DesktopSidebar() {
   return (
-    <aside className="hidden md:flex md:flex-col md:fixed md:inset-y-0 md:w-[260px] border-r border-border/40 bg-card/80 backdrop-blur-sm z-40 overflow-hidden">
+    <aside className="hidden md:flex md:flex-col md:fixed md:inset-y-0 md:w-[260px] glass border-r border-border/40 z-40 overflow-hidden">
       <SidebarNav />
     </aside>
   );
@@ -292,6 +296,7 @@ function HeaderSyncButton() {
 
 export default function Home() {
   const activeTab = useAppStore((s) => s.activeTab);
+  const setActiveTab = useAppStore((s) => s.setActiveTab);
   const sidebarOpen = useAppStore((s) => s.sidebarOpen);
   const setSidebarOpen = useAppStore((s) => s.setSidebarOpen);
   const isMobile = useIsMobile();
@@ -301,7 +306,7 @@ export default function Home() {
     allNavItems.find((i) => i.id === activeTab)?.label || 'Dashboard';
 
   return (
-    <div className="h-[100dvh] h-screen flex overflow-hidden bg-background">
+    <div className="h-[100dvh] h-screen flex overflow-hidden">
       {/* ── Desktop Sidebar ── */}
       <DesktopSidebar />
 
@@ -309,7 +314,7 @@ export default function Home() {
       <Sheet open={sidebarOpen} onOpenChange={setSidebarOpen}>
         <SheetContent
           side="left"
-          className="w-[280px] p-0 bg-card border-r border-border/40 overflow-hidden"
+          className="w-[280px] p-0 glass border-r border-border/40 overflow-hidden"
         >
           <SheetTitle className="sr-only">Navigation Menu</SheetTitle>
           <div className="flex flex-col flex-1 min-h-0 overflow-hidden">
@@ -321,9 +326,9 @@ export default function Home() {
       {/* ── Main Content Area ── */}
       <div className="flex-1 md:pl-[260px] flex flex-col min-w-0">
         {/* ── Top Header ── */}
-        <header className="sticky top-0 z-30 h-14 border-b border-border/40 bg-background/80 backdrop-blur-xl flex items-center justify-between px-4 md:px-6 shrink-0">
+        <header className="sticky top-0 z-30 h-14 border-b border-border/40 glass-strong flex items-center justify-between px-4 md:px-6 shrink-0">
           {/* Left: Mobile menu + Title */}
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-3 min-w-0 flex-1">
             {isMobile && (
               <Button
                 variant="ghost"
@@ -348,18 +353,18 @@ export default function Home() {
 
             {/* Desktop: Show active section breadcrumb */}
             {!isMobile && (
-              <div className="flex items-center gap-2 text-sm">
+              <div className="flex items-center gap-2 text-sm min-w-0">
                 <span className="text-muted-foreground">Home</span>
                 <span className="text-muted-foreground/40">/</span>
-                <span className="font-medium text-foreground">{activeLabel}</span>
+                <span className="font-medium text-foreground truncate">{activeLabel}</span>
               </div>
             )}
           </div>
 
           {/* Right: Actions */}
-          <div className="flex items-center gap-1">
+          <div className="flex items-center gap-1 shrink-0">
             {isMobile && (
-              <span className="text-xs text-muted-foreground mr-1">
+              <span className="text-xs text-muted-foreground mr-1 truncate max-w-[96px]">
                 {activeLabel}
               </span>
             )}
@@ -369,14 +374,19 @@ export default function Home() {
                 <Button
                   variant="ghost"
                   size="icon"
-                  className="text-muted-foreground hover:text-foreground h-8 w-8"
+                  onClick={() => setActiveTab('chat')}
+                  className="text-muted-foreground hover:text-foreground h-8 w-8 relative"
                 >
                   <Zap className="w-4 h-4 text-emerald-500" />
-                  <span className="sr-only">AI Features</span>
+                  <span className="absolute -top-0.5 -right-0.5 flex size-2">
+                    <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-400 opacity-60" />
+                    <span className="relative inline-flex size-2 rounded-full bg-emerald-500" />
+                  </span>
+                  <span className="sr-only">Open AI Chat</span>
                 </Button>
               </TooltipTrigger>
               <TooltipContent side="bottom" className="text-xs">
-                AI Features Active
+                Open AI Chat
               </TooltipContent>
             </Tooltip>
           </div>

@@ -192,6 +192,22 @@ export default function LabourTab() {
   const workerMap: Record<string, LabourWorker> = {};
   workers.forEach((w) => { workerMap[w.id] = w; });
 
+  // ── Salary accounting summary (hisab-kitab) ──
+  const salarySummary = useMemo(() => {
+    const active = workers.filter((w) => w.status !== 'inactive');
+    const monthlyLiability = active.reduce(
+      (sum, w) => sum + ((w.monthlySalary || 0) || (w.dailyWage || 0) * 26),
+      0
+    );
+    const totalPaid = labourPayments.reduce((sum, p) => sum + (p.amount || 0), 0);
+    return {
+      workerCount: workers.length,
+      monthlyLiability,
+      totalPaid,
+      outstanding: Math.max(0, monthlyLiability - totalPaid),
+    };
+  }, [workers, labourPayments]);
+
   const handleAddWorker = () => {
     if (!workerForm.name.trim()) {
       toast({ title: 'Error', description: 'Name is required', variant: 'destructive' });
@@ -346,6 +362,46 @@ export default function LabourTab() {
             {workers.length} worker{workers.length !== 1 ? 's' : ''} · {labourPayments.length} payment{labourPayments.length !== 1 ? 's' : ''}
           </p>
         </div>
+      </div>
+
+      {/* Salary summary cards */}
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+        <Card>
+          <CardContent className="flex items-center justify-between p-4">
+            <div className="min-w-0">
+              <p className="text-xs text-muted-foreground">Total Workers</p>
+              <p className="mt-1 text-2xl font-bold tabular-nums">{salarySummary.workerCount}</p>
+            </div>
+            <div className="rounded-xl bg-emerald-500/10 p-2.5 text-emerald-500"><Users className="size-5" /></div>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardContent className="flex items-center justify-between p-4">
+            <div className="min-w-0">
+              <p className="text-xs text-muted-foreground">Monthly Salary Liability</p>
+              <p className="mt-1 truncate text-lg font-bold tabular-nums">{formatCurrency(salarySummary.monthlyLiability, currency)}</p>
+            </div>
+            <div className="rounded-xl bg-blue-500/10 p-2.5 text-blue-500"><Wrench className="size-5" /></div>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardContent className="flex items-center justify-between p-4">
+            <div className="min-w-0">
+              <p className="text-xs text-muted-foreground">Total Paid</p>
+              <p className="mt-1 truncate text-lg font-bold tabular-nums">{formatCurrency(salarySummary.totalPaid, currency)}</p>
+            </div>
+            <div className="rounded-xl bg-emerald-500/10 p-2.5 text-emerald-500"><Banknote className="size-5" /></div>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardContent className="flex items-center justify-between p-4">
+            <div className="min-w-0">
+              <p className="text-xs text-muted-foreground">Outstanding (approx.)</p>
+              <p className="mt-1 truncate text-lg font-bold tabular-nums text-amber-500">{formatCurrency(salarySummary.outstanding, currency)}</p>
+            </div>
+            <div className="rounded-xl bg-amber-500/10 p-2.5 text-amber-500"><TrendingDown className="size-5" /></div>
+          </CardContent>
+        </Card>
       </div>
 
       <Tabs value={subTab} onValueChange={setSubTab}>

@@ -203,6 +203,15 @@ export function useSheetsSync() {
   return { syncSheets, isSyncing: store.isSyncing, lastSyncResult: store.lastSyncResult };
 }
 
+function buildToolSummary(tool: string, params: any, result: any): string {
+  let summary = `${tool} ${JSON.stringify(params || {})}`;
+  try {
+    const r = typeof result === 'string' ? result : JSON.stringify(result);
+    summary += ` => ${r.substring(0, 1500)}`;
+  } catch { /* ignore */ }
+  return summary;
+}
+
 export function useChat() {
   const store = useAppStore();
   const qc = useQueryClient();
@@ -215,11 +224,22 @@ export function useChat() {
       const apiKey = store.nvidiaApiKey;
       const baseUrl = store.nvidiaBaseUrl || 'https://integrate.api.nvidia.com/v1';
       const model = store.nvidiaModel || 'z-ai/glm-5.1';
-      const temperature = 0.7;
-      const maxTokens = 1024;
+      // Read saved LLM preferences (temperature / max tokens / rate limits) from IndexedDB settings
+      let temperature = 0.7;
+      let maxTokens = 1024;
+      let rps = 2;
+      let rpm = 60;
+      try {
+        const savedSettings = await getSettings();
+        temperature = savedSettings.temperature ?? 0.7;
+        maxTokens = savedSettings.maxTokens ?? 1024;
+        rps = savedSettings.rateLimitRps ?? 2;
+        rpm = savedSettings.rateLimitRpm ?? 60;
+      } catch { /* keep defaults */ }
 
-      // Build history from last 20 messages (larger context window)
-      const history = store.chatMessages.slice(-20).map(m => ({ role: m.role, content: m.content }));
+      // Build history from last 20 messages, EXCLUDING the message just added above
+      // (otherwise the current user message gets duplicated in the prompt)
+      const history = store.chatMessages.slice(-20, -1).map(m => ({ role: m.role, content: m.content }));
 
       const res = await fetch('/api/chat', {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
@@ -233,6 +253,8 @@ export function useChat() {
           baseUrl,
           temperature,
           maxTokens,
+          rps,
+          rpm,
         }),
       });
       if (!res.ok) {
@@ -373,8 +395,38 @@ export function useChat() {
           console.error('Tool execution error:', toolErr);
         }
 
+        // Agentic follow-up: ask the model to confirm what the tool did, in natural language
+        let finalResponse = data.response;
+        if (toolResult) {
+          try {
+            const summary = buildToolSummary(data.toolCall.tool, data.toolCall.params, toolResult);
+            const followUpRes = await fetch('/api/chat', {
+              method: 'POST', headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                message,
+                history: [
+                  ...history,
+                  { role: 'user', content: message },
+                  { role: 'assistant', content: data.response },
+                ],
+                followUp: { tool: data.toolCall.tool, summary },
+                apiKey, model, baseUrl,
+                temperature, maxTokens: Math.min(maxTokens, 512),
+                thinkingEnabled: false,
+                rps, rpm,
+              }),
+            });
+            if (followUpRes.ok) {
+              const d2 = await followUpRes.json();
+              if (d2.response) finalResponse = d2.response;
+            }
+          } catch (e2) {
+            console.warn('Follow-up confirmation failed, keeping default response:', e2);
+          }
+        }
+
         store.addChatMessage({
-          id: crypto.randomUUID(), role: 'assistant', content: data.response,
+          id: crypto.randomUUID(), role: 'assistant', content: finalResponse,
           timestamp: new Date(), toolUsed: true, toolResult,
         });
       } else {

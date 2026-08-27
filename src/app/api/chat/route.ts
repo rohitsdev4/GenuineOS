@@ -1,6 +1,36 @@
 import { NextRequest, NextResponse } from 'next/server';
 import OpenAI from 'openai';
 
+// ── In-memory rate limiter (per deployment; resets on cold start) ──
+// Enforces per-second (token bucket) and per-minute (sliding window) limits
+// configured by the user in Settings → LLM & AI.
+const rateBuckets = new Map<string, { tokens: number; lastRefill: number; minuteWindow: number[] }>();
+
+function checkRateLimit(key: string, rps: number, rpm: number): { allowed: boolean; retryAfterMs: number } {
+  const now = Date.now();
+  let b = rateBuckets.get(key);
+  if (!b) {
+    b = { tokens: rps, lastRefill: now, minuteWindow: [] };
+    rateBuckets.set(key, b);
+  }
+  // Refill tokens based on elapsed time
+  const elapsed = (now - b.lastRefill) / 1000;
+  b.tokens = Math.min(rps, b.tokens + elapsed * rps);
+  b.lastRefill = now;
+  // Sliding window for RPM
+  b.minuteWindow = b.minuteWindow.filter((t) => now - t < 60000);
+  if (b.minuteWindow.length >= rpm) {
+    const oldest = b.minuteWindow[0];
+    return { allowed: false, retryAfterMs: 60000 - (now - oldest) };
+  }
+  if (b.tokens < 1) {
+    return { allowed: false, retryAfterMs: Math.max(500, Math.ceil(((1 - b.tokens) / rps) * 1000)) };
+  }
+  b.tokens -= 1;
+  b.minuteWindow.push(now);
+  return { allowed: true, retryAfterMs: 0 };
+}
+
 const SYSTEM_PROMPT = `You are GenuineOS AI Assistant — an intelligent business management copilot. You help users manage their business data and can answer any general questions, perform research, or write content.
 
 ## Core Rules
@@ -40,10 +70,27 @@ export async function POST(request: NextRequest) {
       model = 'z-ai/glm-5.1',
       temperature = 0.7,
       maxTokens = 1024,
+      thinkingEnabled = true,
+      followUp = null,
+      rps = 2,
+      rpm = 60,
     } = await request.json();
 
     if (!message) {
       return NextResponse.json({ error: 'Message is required' }, { status: 400 });
+    }
+
+    // ── Enforce user-configured rate limits ──
+    const safeRps = Math.min(Math.max(Number(rps) || 2, 0.5), 20);
+    const safeRpm = Math.min(Math.max(Number(rpm) || 60, 1), 600);
+    const clientKey = (request.headers.get('x-forwarded-for') || 'local').split(',')[0].trim();
+    const rl = checkRateLimit(clientKey, safeRps, safeRpm);
+    if (!rl.allowed) {
+      const waitSec = Math.ceil(rl.retryAfterMs / 1000);
+      return NextResponse.json(
+        { error: `Rate limit reached (${safeRps}/sec, ${safeRpm}/min). Try again in ${waitSec}s.` },
+        { status: 429, headers: { 'Retry-After': String(waitSec) } }
+      );
     }
 
     if (!apiKey) {
@@ -91,10 +138,13 @@ export async function POST(request: NextRequest) {
     ];
 
     // Ensure the final message is the current user message, merging if the last history was also user
-    if (messages[messages.length - 1].role === 'user') {
-      messages[messages.length - 1].content += `\n\n${message}`;
-    } else {
-      messages.push({ role: 'user', content: message });
+    // (skipped for follow-up confirmations — the client already includes the full thread)
+    if (!followUp) {
+      if (messages[messages.length - 1].role === 'user') {
+        messages[messages.length - 1].content += `\n\n${message}`;
+      } else {
+        messages.push({ role: 'user', content: message });
+      }
     }
 
     const openai = new OpenAI({
@@ -104,6 +154,25 @@ export async function POST(request: NextRequest) {
       maxRetries: 2, // Native retry on rate limits or failures
     });
 
+    // ── Agentic follow-up: a tool already executed client-side — ask the model to confirm ──
+    if (followUp && followUp.summary) {
+      const confirmMessages = [
+        ...messages,
+        {
+          role: 'system',
+          content: `A tool just executed on the user's behalf.\n\nTool: ${followUp.tool || 'unknown'}\nResult: ${String(followUp.summary).substring(0, 3000)}\n\nReply to the user with a short, natural confirmation of what was done (max 2-3 lines), in the same language the user wrote in. Do not mention JSON, tool names, or technical details unless useful.`,
+        },
+      ];
+      const confirmCompletion = await openai.chat.completions.create({
+        model: model,
+        messages: confirmMessages as any,
+        temperature: safeTemperature,
+        max_tokens: Math.min(safeMaxTokens, 512),
+      });
+      const confirmText = confirmCompletion.choices[0]?.message?.content?.trim() || 'Done.';
+      return NextResponse.json({ response: confirmText, model: model });
+    }
+
     const completion = await openai.chat.completions.create({
       model: model,
       messages: messages as any,
@@ -111,7 +180,13 @@ export async function POST(request: NextRequest) {
       max_tokens: safeMaxTokens,
     });
 
-    let response = completion.choices[0]?.message?.content || '';
+    // Extract reasoning content for thinking models (DeepSeek/GLM-style), if enabled
+    const rawMessage = completion.choices[0]?.message as any;
+    let reasoning = '';
+    if (thinkingEnabled) {
+      reasoning = (rawMessage?.reasoning_content || rawMessage?.reasoning || '').trim();
+    }
+    let response = rawMessage?.content || '';
     if (!response.trim()) {
       response = 'Sorry, I could not generate a response. Please try again.';
     }
@@ -138,6 +213,7 @@ export async function POST(request: NextRequest) {
 
     return NextResponse.json({
       response: responseText,
+      thinkingProcess: reasoning || undefined,
       toolUsed: toolCall ? true : false,
       toolCall,
       model: model,

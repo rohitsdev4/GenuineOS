@@ -162,3 +162,41 @@
     -webkit-user-select: text;
   }
 }
+
+@layer components {
+  /* ── Glassmorphism app background (emerald glow layers) ── */
+  body {
+    background-image:
+      radial-gradient(1100px 550px at 12% -8%, oklch(0.6 0.15 160 / 0.13), transparent 60%),
+      radial-gradient(850px 480px at 108% 8%, oklch(0.65 0.2 230 / 0.10), transparent 55%),
+      radial-gradient(750px 560px at 50% 118%, oklch(0.55 0.15 160 / 0.10), transparent 60%);
+    background-attachment: fixed;
+  }
+  .dark body {
+    background-image:
+      radial-gradient(1100px 550px at 12% -8%, oklch(0.6 0.15 160 / 0.17), transparent 60%),
+      radial-gradient(850px 480px at 108% 8%, oklch(0.65 0.2 230 / 0.13), transparent 55%),
+      radial-gradient(750px 560px at 50% 118%, oklch(0.55 0.15 160 / 0.13), transparent 60%);
+    background-attachment: fixed;
+  }
+
+  /* ── Glass surfaces ── */
+  .glass {
+    background: color-mix(in oklab, var(--card) 74%, transparent);
+    backdrop-filter: blur(18px) saturate(140%);
+    -webkit-backdrop-filter: blur(18px) saturate(140%);
+    border: 1px solid color-mix(in oklab, var(--border) 60%, transparent);
+  }
+  .glass-strong {
+    background: color-mix(in oklab, var(--card) 90%, transparent);
+    backdrop-filter: blur(26px) saturate(160%);
+    -webkit-backdrop-filter: blur(26px) saturate(160%);
+    border: 1px solid color-mix(in oklab, var(--border) 75%, transparent);
+  }
+  .glass-subtle {
+    background: color-mix(in oklab, var(--muted) 55%, transparent);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+    border: 1px solid color-mix(in oklab, var(--border) 40%, transparent);
+  }
+}

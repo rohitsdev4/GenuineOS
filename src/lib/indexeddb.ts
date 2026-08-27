@@ -41,6 +41,8 @@ export interface AppSettings {
   lastSyncMessage: string | null;
   autoSync: boolean;
   syncInterval: number;
+  rateLimitRps: number;
+  rateLimitRpm: number;
   createdAt: string;
   updatedAt: string;
 }
@@ -280,6 +282,28 @@ export interface HabitLog {
   updatedAt: string;
 }
 
+export interface Estimate {
+  id: string;
+  number: string;
+  type: 'estimate' | 'quotation' | 'invoice';
+  title: string;
+  clientId: string | null;
+  clientName: string;
+  siteId: string | null;
+  date: string;
+  validUntil: string | null;
+  items: { description: string; qty: number; rate: number }[];
+  taxRate: number;
+  discount: number;
+  subtotal: number;
+  taxAmount: number;
+  total: number;
+  status: string;
+  notes: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
 export interface ChatMessage {
   id: string;
   role: 'user' | 'assistant' | 'system';
@@ -309,6 +333,7 @@ class GenuineDB extends Dexie {
   habit!: EntityTable<Habit, 'id'>;
   habitLog!: EntityTable<HabitLog, 'id'>;
   chatMessage!: EntityTable<ChatMessage, 'id'>;
+  estimate!: EntityTable<Estimate, 'id'>;
 
   constructor() {
     super('GenuineOS');
@@ -331,6 +356,27 @@ class GenuineDB extends Dexie {
       habit: 'id, name, category, status, frequency',
       habitLog: 'id, habitId, date',
       chatMessage: 'id, role, timestamp',
+    });
+
+    this.version(3).stores({
+      appSettings: 'id',
+      manager: 'id, name, status, role',
+      client: 'id, name, status, type',
+      site: 'id, name, status, clientId',
+      payment: 'id, party, date, category, mode, siteId, clientId, managerId, partner',
+      sitePayment: 'id, siteId, date, category, mode',
+      expense: 'id, title, date, category, mode, siteId, managerId, partner, paidTo',
+      receivable: 'id, party, status, priority, dueDate, clientId',
+      task: 'id, title, status, priority, dueDate, siteId',
+      labour: 'id, name, status, role, siteId',
+      labourPayment: 'id, labourId, date, month, mode',
+      attendance: 'id, labourId, date',
+      extraWork: 'id, siteId, date',
+      note: 'id, title, category, color',
+      habit: 'id, name, category, status, frequency',
+      habitLog: 'id, habitId, date',
+      chatMessage: 'id, role, timestamp',
+      estimate: 'id, number, type, status, clientId, siteId, date',
     });
   }
 }
@@ -370,6 +416,8 @@ export function createDefaultSettings(): AppSettings {
     lastSyncMessage: null,
     autoSync: false,
     syncInterval: 60,
+    rateLimitRps: 2,
+    rateLimitRpm: 60,
     createdAt: now,
     updatedAt: now,
   };
