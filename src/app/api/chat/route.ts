@@ -59,6 +59,52 @@ const SYSTEM_PROMPT = `You are GenuineOS AI Assistant — an intelligent busines
 - FETCH_DATA: model (str,req) [options: payment, expense, receivable, task, site, labour, client, note], query (str,opt)
 `;
 
+// ── Fallback model chain ──
+// Free-tier NIM model IDs change/retire without notice. If the saved model
+// returns 404 (not found) or 410 (gone), retry with known-good free models
+// so chat keeps working instead of erroring out.
+const FALLBACK_MODELS = [
+  'meta/llama-3.3-70b-instruct',
+  'meta/llama-3.1-8b-instruct',
+  'gpt-oss/gpt-oss-120b',
+  'deepseek-ai/deepseek-r1',
+];
+
+function isModelUnavailableError(e: any): boolean {
+  const status = e?.status;
+  const msg = String(e?.message || '');
+  if (status === 404 || status === 410) return true;
+  if (status === 400 && /model|not found|no such|unknown/i.test(msg)) return true;
+  return false;
+}
+
+async function createWithFallback(
+  client: OpenAI,
+  model: string,
+  messages: any[],
+  opts: { temperature: number; max_tokens: number }
+): Promise<{ completion: any; usedModel: string }> {
+  const attempts = [model, ...FALLBACK_MODELS.filter((m) => m !== model)];
+  let lastErr: any = null;
+  for (const m of attempts) {
+    try {
+      const completion = await client.chat.completions.create({
+        model: m,
+        messages,
+        temperature: opts.temperature,
+        max_tokens: opts.max_tokens,
+      });
+      return { completion, usedModel: m };
+    } catch (e: any) {
+      lastErr = e;
+      // Only 404/410/400-model errors mean "model unavailable" - keep trying.
+      // Everything else (401, 429, 5xx...) is a real problem - stop immediately.
+      if (!isModelUnavailableError(e)) throw e;
+    }
+  }
+  throw lastErr;
+}
+
 export async function POST(request: NextRequest) {
   try {
     const {
@@ -163,22 +209,26 @@ export async function POST(request: NextRequest) {
           content: `A tool just executed on the user's behalf.\n\nTool: ${followUp.tool || 'unknown'}\nResult: ${String(followUp.summary).substring(0, 3000)}\n\nReply to the user with a short, natural confirmation of what was done (max 2-3 lines), in the same language the user wrote in. Do not mention JSON, tool names, or technical details unless useful.`,
         },
       ];
-      const confirmCompletion = await openai.chat.completions.create({
-        model: model,
-        messages: confirmMessages as any,
-        temperature: safeTemperature,
-        max_tokens: Math.min(safeMaxTokens, 512),
-      });
+      const { completion: confirmCompletion, usedModel: confirmModel } = await createWithFallback(
+        openai,
+        model,
+        confirmMessages as any,
+        { temperature: safeTemperature, max_tokens: Math.min(safeMaxTokens, 512) }
+      );
       const confirmText = confirmCompletion.choices[0]?.message?.content?.trim() || 'Done.';
-      return NextResponse.json({ response: confirmText, model: model });
+      return NextResponse.json({
+        response: confirmText,
+        model: confirmModel,
+        note: confirmModel !== model ? `Your saved model "${model}" is unavailable — used "${confirmModel}" instead. Update it in Settings → LLM & AI → Verify Connection.` : undefined,
+      });
     }
 
-    const completion = await openai.chat.completions.create({
-      model: model,
-      messages: messages as any,
-      temperature: safeTemperature,
-      max_tokens: safeMaxTokens,
-    });
+    const { completion, usedModel } = await createWithFallback(
+      openai,
+      model,
+      messages as any,
+      { temperature: safeTemperature, max_tokens: safeMaxTokens }
+    );
 
     // Extract reasoning content for thinking models (DeepSeek/GLM-style), if enabled
     const rawMessage = completion.choices[0]?.message as any;
@@ -216,12 +266,21 @@ export async function POST(request: NextRequest) {
       thinkingProcess: reasoning || undefined,
       toolUsed: toolCall ? true : false,
       toolCall,
-      model: model,
+      model: usedModel,
+      note: usedModel !== model ? `Your saved model "${model}" is unavailable — used "${usedModel}" instead. Update it in Settings → LLM & AI → Verify Connection.` : undefined,
     });
   } catch (error: any) {
     console.error('[Chat] Unexpected error:', error);
 
     // Handle specific OpenAI / NIM API errors gracefully
+    if (error?.status === 404 || error?.status === 410 || (error?.status === 400 && /model|not found/i.test(String(error?.message || '')))) {
+      return NextResponse.json(
+        {
+          error: 'The selected AI model is not available on your provider (404/410). All fallback models also failed. Go to Settings → LLM & AI → Verify Connection and pick a working Model ID (exact IDs are listed on build.nvidia.com/models).',
+        },
+        { status: 404 }
+      );
+    }
     if (error?.status === 429) {
       return NextResponse.json(
         { error: 'You have hit the NVIDIA API rate limit. Please wait a moment and try again.' },

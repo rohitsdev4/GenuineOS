@@ -116,7 +116,7 @@ function MessageBubble({ msg }: { msg: import('@/stores/app-store').ChatMessage 
   const isUser = msg.role === 'user';
 
   return (
-    <div className={`flex gap-3 w-full ${isUser ? 'justify-end' : 'justify-start'}`}>
+    <div className={`flex gap-3 w-full max-w-full ${isUser ? 'justify-end' : 'justify-start'}`}>
       {/* AI avatar */}
       {!isUser && (
         <div className="w-7 h-7 rounded-lg bg-emerald-500/10 flex items-center justify-center flex-shrink-0 mt-1">
@@ -125,7 +125,7 @@ function MessageBubble({ msg }: { msg: import('@/stores/app-store').ChatMessage 
       )}
 
       <div
-        className={`max-w-[80%] min-w-0 break-words rounded-xl px-4 py-2.5 ${
+        className={`max-w-[85%] min-w-0 break-words overflow-hidden rounded-xl px-4 py-2.5 ${
           isUser
             ? 'bg-emerald-600 text-white rounded-br-md'
             : 'bg-card border rounded-bl-md'
@@ -179,7 +179,7 @@ function MessageBubble({ msg }: { msg: import('@/stores/app-store').ChatMessage 
 
         {/* Display Tool Result if it's fetched data */}
         {!isUser && msg.toolResult && msg.toolResult.data && Array.isArray(msg.toolResult.data) && msg.toolResult.data.length > 0 && (
-          <div className="mt-3 text-xs bg-muted/30 rounded-lg p-2 max-h-60 overflow-auto break-words border border-emerald-500/20">
+          <div className="mt-3 text-xs bg-muted/30 rounded-lg p-2 max-h-60 overflow-auto break-words max-w-full border border-emerald-500/20">
              {msg.toolResult.data.map((item: any) => (
                 <div key={item.id} className="border-b last:border-0 border-border/50 py-1.5 px-1">
                   {Object.entries(item)
@@ -215,7 +215,7 @@ function MessageBubble({ msg }: { msg: import('@/stores/app-store').ChatMessage 
 /* ── Welcome screen ───────────────────────────────────────────────── */
 function WelcomeScreen({ onSend, hasApiKey, onGoToSettings }: { onSend: (msg: string) => void; hasApiKey: boolean; onGoToSettings: () => void }) {
   return (
-    <div className="flex flex-col items-center justify-center py-12 px-4 text-center">
+    <div className="flex flex-col items-center justify-center py-12 px-4 text-center w-full max-w-full overflow-hidden">
       <div className="w-16 h-16 rounded-2xl bg-emerald-500/10 flex items-center justify-center mb-4">
         <Bot className="w-8 h-8 text-emerald-500" />
       </div>
@@ -363,7 +363,7 @@ export default function ChatTab() {
   };
 
   return (
-    <div className="h-full flex flex-col">
+    <div className="h-full w-full max-w-full flex flex-col overflow-hidden">
       {/* ── Top bar ─────────────────────────────────────────────── */}
       <div className="flex items-center justify-between px-4 py-3 border-b flex-shrink-0">
         <div className="flex items-center gap-2">
@@ -458,8 +458,8 @@ export default function ChatTab() {
       )}
 
       {/* ── Message area ────────────────────────────────────────── */}
-      <ScrollArea className="flex-1 min-h-0">
-        <div className="p-4 space-y-4">
+      <ScrollArea className="flex-1 min-h-0 w-full max-w-full [&_[data-radix-scroll-area-viewport]]:overflow-x-hidden [&_[data-radix-scroll-area-viewport]]:overscroll-x-contain">
+        <div className="p-4 space-y-4 w-full max-w-full">
           {chatMessages.length === 0 ? (
             <WelcomeScreen onSend={(msg) => {
               setInput(msg);
@@ -484,7 +484,7 @@ export default function ChatTab() {
       <Separator />
 
       {/* ── Input area ──────────────────────────────────────────── */}
-      <div className="p-3 flex-shrink-0">
+      <div className="p-3 flex-shrink-0 w-full max-w-full">
         {/* Generate toolbar */}
         <div className="mb-2 flex flex-wrap items-center gap-1.5">
           <span className="text-[11px] text-muted-foreground mr-0.5">Generate:</span>

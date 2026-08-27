@@ -262,8 +262,10 @@ export function useChat() {
         throw new Error(errData.error || `Request failed (${res.status})`);
       }
       const data = await res.json();
+      // If the server had to fall back to another model, surface that note
+      const noteSuffix = data.note ? `\n\n---\n💡 ${data.note}` : '';
 
-      // Handle tool calls from server — execute client-side
+      // Handle tool calls from server - execute client-side
       if (data.toolCall && data.toolCall.tool && data.toolCall.params) {
         const { createRecord: cr, updateRecord: ur, deleteRecord: dr, fetchData: fd } = await import('@/lib/data-service');
 
@@ -426,12 +428,12 @@ export function useChat() {
         }
 
         store.addChatMessage({
-          id: crypto.randomUUID(), role: 'assistant', content: finalResponse,
+          id: crypto.randomUUID(), role: 'assistant', content: finalResponse + noteSuffix,
           timestamp: new Date(), toolUsed: true, toolResult,
         });
       } else {
         store.addChatMessage({
-          id: crypto.randomUUID(), role: 'assistant', content: data.response,
+          id: crypto.randomUUID(), role: 'assistant', content: data.response + noteSuffix,
           timestamp: new Date(), toolUsed: data.toolUsed, thinkingProcess: data.thinkingProcess,
         });
       }
