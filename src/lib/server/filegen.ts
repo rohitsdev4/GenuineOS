@@ -9,7 +9,7 @@ import type { DocPayload, FileFormat, GeneratedFile, LineItem, PptxPayload, Xlsx
 
 const INK = rgb(0.09, 0.13, 0.19); // slate-900-ish
 const MUTED = rgb(0.42, 0.47, 0.55);
-const ACCENT = rgb(0.02, 0.47, 0.34); // emerald-700
+const ACCENT = rgb(0.145, 0.388, 0.922); // emerald-700
 const ACCENT_SOFT = rgb(0.91, 0.96, 0.93);
 const LINE = rgb(0.85, 0.88, 0.92);
 

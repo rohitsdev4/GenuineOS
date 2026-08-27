@@ -372,7 +372,7 @@ export default function LabourTab() {
               <p className="text-xs text-muted-foreground">Total Workers</p>
               <p className="mt-1 text-2xl font-bold tabular-nums">{salarySummary.workerCount}</p>
             </div>
-            <div className="rounded-xl bg-emerald-500/10 p-2.5 text-emerald-500"><Users className="size-5" /></div>
+            <div className="rounded-xl bg-blue-500/10 p-2.5 text-blue-600"><Users className="size-5" /></div>
           </CardContent>
         </Card>
         <Card>
@@ -390,7 +390,7 @@ export default function LabourTab() {
               <p className="text-xs text-muted-foreground">Total Paid</p>
               <p className="mt-1 truncate text-lg font-bold tabular-nums">{formatCurrency(salarySummary.totalPaid, currency)}</p>
             </div>
-            <div className="rounded-xl bg-emerald-500/10 p-2.5 text-emerald-500"><Banknote className="size-5" /></div>
+            <div className="rounded-xl bg-blue-500/10 p-2.5 text-blue-600"><Banknote className="size-5" /></div>
           </CardContent>
         </Card>
         <Card>

@@ -158,7 +158,7 @@ export default function VehiclesTab() {
         <Button
           onClick={() => { setForm(emptyForm); setAddOpen(true); }}
           size="sm"
-          className="bg-emerald-600 hover:bg-emerald-700 text-white"
+          className="bg-blue-600 hover:bg-blue-700 text-white"
         >
           <Plus className="w-4 h-4 mr-1" />
           Add Vehicle
@@ -166,10 +166,10 @@ export default function VehiclesTab() {
       </div>
 
       {/* Info banner */}
-      <Card className="border-emerald-500/20 bg-emerald-500/5">
+      <Card className="border-blue-500/20 bg-blue-500/5">
         <CardContent className="flex items-start gap-3 p-4">
-          <Truck className="w-4 h-4 text-emerald-500 mt-0.5 flex-shrink-0" />
-          <p className="text-sm text-emerald-700 dark:text-emerald-400">
+          <Truck className="w-4 h-4 text-blue-500 mt-0.5 flex-shrink-0" />
+          <p className="text-sm text-blue-700 dark:text-blue-400">
             Manage your vehicle fleet. Add vehicles or use AI Chat commands for quick additions.
           </p>
         </CardContent>
@@ -276,7 +276,7 @@ export default function VehiclesTab() {
             <Button
               onClick={handleCreate}
               disabled={submitting || !form.title.trim() || !form.content.trim()}
-              className="bg-emerald-600 hover:bg-emerald-700 text-white"
+              className="bg-blue-600 hover:bg-blue-700 text-white"
             >
               {submitting ? 'Adding...' : 'Add Vehicle'}
             </Button>
@@ -317,7 +317,7 @@ export default function VehiclesTab() {
             <Button
               onClick={handleEdit}
               disabled={submitting || !form.title.trim() || !form.content.trim()}
-              className="bg-emerald-600 hover:bg-emerald-700 text-white"
+              className="bg-blue-600 hover:bg-blue-700 text-white"
             >
               {submitting ? 'Saving...' : 'Save Changes'}
             </Button>

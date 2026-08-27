@@ -1083,7 +1083,7 @@ export default function HabitsTab() {
             <CardContent className="p-3">
               <p className="text-xs text-muted-foreground mb-1">Active Habits</p>
               <div className="flex items-center gap-1.5">
-                <Target className="size-4 text-emerald-500" />
+                <Target className="size-4 text-blue-500" />
                 <span className="text-xl font-bold">{activeHabits.length}</span>
               </div>
             </CardContent>

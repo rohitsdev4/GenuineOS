@@ -73,7 +73,7 @@ function ThinkingBlock({ text }: { text: string }) {
         onClick={() => setOpen((v) => !v)}
         className="flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground transition-colors cursor-pointer"
       >
-        <Brain className="w-3.5 h-3.5 text-emerald-500" />
+        <Brain className="w-3.5 h-3.5 text-blue-500" />
         <span className="italic">Thinking process</span>
         {open ? (
           <ChevronUp className="w-3 h-3" />
@@ -94,8 +94,8 @@ function ThinkingBlock({ text }: { text: string }) {
 function TypingIndicator() {
   return (
     <div className="flex gap-3 justify-start">
-      <div className="w-7 h-7 rounded-lg bg-emerald-500/10 flex items-center justify-center flex-shrink-0 mt-1">
-        <Bot className="w-3.5 h-3.5 text-emerald-500" />
+      <div className="w-7 h-7 rounded-lg bg-blue-500/10 flex items-center justify-center flex-shrink-0 mt-1">
+        <Bot className="w-3.5 h-3.5 text-blue-500" />
       </div>
       <div className="bg-card border rounded-xl px-4 py-3">
         <div className="flex items-center gap-1.5">
@@ -119,15 +119,15 @@ function MessageBubble({ msg }: { msg: import('@/stores/app-store').ChatMessage 
     <div className={`flex gap-3 w-full max-w-full ${isUser ? 'justify-end' : 'justify-start'}`}>
       {/* AI avatar */}
       {!isUser && (
-        <div className="w-7 h-7 rounded-lg bg-emerald-500/10 flex items-center justify-center flex-shrink-0 mt-1">
-          <Bot className="w-3.5 h-3.5 text-emerald-500" />
+        <div className="w-7 h-7 rounded-lg bg-blue-500/10 flex items-center justify-center flex-shrink-0 mt-1">
+          <Bot className="w-3.5 h-3.5 text-blue-500" />
         </div>
       )}
 
       <div
         className={`max-w-[85%] min-w-0 break-words overflow-hidden rounded-xl px-4 py-2.5 ${
           isUser
-            ? 'bg-emerald-600 text-white rounded-br-md'
+            ? 'bg-blue-600 text-white rounded-br-md'
             : 'bg-card border rounded-bl-md'
         }`}
       >
@@ -170,7 +170,7 @@ function MessageBubble({ msg }: { msg: import('@/stores/app-store').ChatMessage 
           {!isUser && msg.toolUsed && (
             <Badge
               variant="secondary"
-              className="text-[10px] h-4 px-1.5 py-0 bg-emerald-500/10 text-emerald-500 border-emerald-500/20"
+              className="text-[10px] h-4 px-1.5 py-0 bg-blue-500/10 text-blue-500 border-blue-500/20"
             >
               ⚡ Tool
             </Badge>
@@ -179,7 +179,7 @@ function MessageBubble({ msg }: { msg: import('@/stores/app-store').ChatMessage 
 
         {/* Display Tool Result if it's fetched data */}
         {!isUser && msg.toolResult && msg.toolResult.data && Array.isArray(msg.toolResult.data) && msg.toolResult.data.length > 0 && (
-          <div className="mt-3 text-xs bg-muted/30 rounded-lg p-2 max-h-60 overflow-auto break-words max-w-full border border-emerald-500/20">
+          <div className="mt-3 text-xs bg-muted/30 rounded-lg p-2 max-h-60 overflow-auto break-words max-w-full border border-blue-500/20">
              {msg.toolResult.data.map((item: any) => (
                 <div key={item.id} className="border-b last:border-0 border-border/50 py-1.5 px-1">
                   {Object.entries(item)
@@ -196,7 +196,7 @@ function MessageBubble({ msg }: { msg: import('@/stores/app-store').ChatMessage 
         )}
         
         {!isUser && msg.toolResult && msg.toolResult.data && Array.isArray(msg.toolResult.data) && msg.toolResult.data.length === 0 && (
-          <div className="mt-3 text-xs text-muted-foreground bg-muted/30 rounded-lg p-2 border border-emerald-500/20">
+          <div className="mt-3 text-xs text-muted-foreground bg-muted/30 rounded-lg p-2 border border-blue-500/20">
              No records found.
           </div>
         )}
@@ -216,8 +216,8 @@ function MessageBubble({ msg }: { msg: import('@/stores/app-store').ChatMessage 
 function WelcomeScreen({ onSend, hasApiKey, onGoToSettings }: { onSend: (msg: string) => void; hasApiKey: boolean; onGoToSettings: () => void }) {
   return (
     <div className="flex flex-col items-center justify-center py-12 px-4 text-center w-full max-w-full overflow-hidden">
-      <div className="w-16 h-16 rounded-2xl bg-emerald-500/10 flex items-center justify-center mb-4">
-        <Bot className="w-8 h-8 text-emerald-500" />
+      <div className="w-16 h-16 rounded-2xl bg-blue-500/10 flex items-center justify-center mb-4">
+        <Bot className="w-8 h-8 text-blue-500" />
       </div>
       <h3 className="text-lg font-semibold mb-1">
         GenuineOS AI Assistant
@@ -237,7 +237,7 @@ function WelcomeScreen({ onSend, hasApiKey, onGoToSettings }: { onSend: (msg: st
                 <p className="text-xs font-medium text-amber-500">API Key Required</p>
                 <p className="text-[11px] text-muted-foreground mt-0.5">
                   Go to Settings &gt; AI Configuration and add your NVIDIA NIM API key from{' '}
-                  <a href="https://build.nvidia.com/" target="_blank" rel="noopener noreferrer" className="text-emerald-500 underline">NVIDIA Build</a>.
+                  <a href="https://build.nvidia.com/" target="_blank" rel="noopener noreferrer" className="text-blue-500 underline">NVIDIA Build</a>.
                 </p>
               </div>
             </div>
@@ -278,7 +278,7 @@ function MemoryPanel() {
   return (
     <div className="border rounded-lg p-3 bg-muted/30">
       <div className="flex items-center gap-2 mb-2">
-        <Brain className="w-4 h-4 text-emerald-500" />
+        <Brain className="w-4 h-4 text-blue-500" />
         <span className="text-sm font-medium">Memory</span>
       </div>
       <Textarea
@@ -367,14 +367,14 @@ export default function ChatTab() {
       {/* ── Top bar ─────────────────────────────────────────────── */}
       <div className="flex items-center justify-between px-4 py-3 border-b flex-shrink-0">
         <div className="flex items-center gap-2">
-          <div className="w-8 h-8 rounded-lg bg-emerald-500/10 flex items-center justify-center">
-            <Bot className="w-4 h-4 text-emerald-500" />
+          <div className="w-8 h-8 rounded-lg bg-blue-500/10 flex items-center justify-center">
+            <Bot className="w-4 h-4 text-blue-500" />
           </div>
           <div className="flex flex-col">
             <h2 className="text-base font-semibold leading-tight">AI Assistant</h2>
             <div className="flex items-center gap-1.5">
               {hasApiKey ? (
-                <Badge variant="secondary" className="text-[10px] h-4 px-1.5 py-0 bg-emerald-500/10 text-emerald-500 border-emerald-500/20 gap-1">
+                <Badge variant="secondary" className="text-[10px] h-4 px-1.5 py-0 bg-blue-500/10 text-blue-500 border-blue-500/20 gap-1">
                   <CheckCircle2 className="w-2.5 h-2.5" /> {modelName}
                 </Badge>
               ) : (
@@ -395,7 +395,7 @@ export default function ChatTab() {
                   variant="ghost"
                   size="sm"
                   onClick={() => setMemoryOpen((v) => !v)}
-                  className={`h-8 px-2 gap-1.5 ${memoryOpen ? 'text-emerald-600' : 'text-muted-foreground'}`}
+                  className={`h-8 px-2 gap-1.5 ${memoryOpen ? 'text-blue-600' : 'text-muted-foreground'}`}
                 >
                   <Brain className="w-4 h-4" />
                   <span className="text-xs hidden sm:inline">Memory</span>
@@ -414,7 +414,7 @@ export default function ChatTab() {
                     id="thinking-toggle"
                     checked={thinkingEnabled}
                     onCheckedChange={setThinkingEnabled}
-                    className="data-[state=checked]:bg-emerald-600"
+                    className="data-[state=checked]:bg-blue-600"
                   />
                   <label
                     htmlFor="thinking-toggle"
@@ -515,7 +515,7 @@ export default function ChatTab() {
             onClick={handleSend}
             disabled={!input.trim() || isChatLoading || !hasApiKey}
             size="icon"
-            className="h-10 w-10 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white flex-shrink-0"
+            className="h-10 w-10 rounded-xl bg-blue-600 hover:bg-blue-700 text-white flex-shrink-0"
           >
             <Send className="w-4 h-4" />
           </Button>

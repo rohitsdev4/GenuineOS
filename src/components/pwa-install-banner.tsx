@@ -38,7 +38,7 @@ export function PWAInstallBanner() {
         <p className="text-sm font-semibold">Install GenuineOS</p>
         <p className="text-xs text-muted-foreground">Open as app on your home screen</p>
       </div>
-      <Button size="sm" onClick={handleInstall} className="bg-emerald-600 hover:bg-emerald-700 text-white shrink-0">
+      <Button size="sm" onClick={handleInstall} className="bg-blue-600 hover:bg-blue-700 text-white shrink-0">
         <Download className="w-4 h-4 mr-1" /> Install
       </Button>
       <button onClick={() => setShow(false)} className="text-muted-foreground hover:text-foreground shrink-0">

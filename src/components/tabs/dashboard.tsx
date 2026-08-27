@@ -202,7 +202,7 @@ function PartnerCard({ partner, loading }: { partner: Partner; loading: boolean 
   const balanceColor = partner.balance >= 0 ? 'text-emerald-500' : 'text-red-500';
   const isGulshan = partner.partner === 'Gulshan';
   const gradientFrom = isGulshan ? 'from-blue-500/50' : 'from-amber-500/50';
-  const gradientTo = isGulshan ? 'to-emerald-500/50' : 'to-orange-500/50';
+  const gradientTo = isGulshan ? 'to-blue-400/50' : 'to-orange-500/50';
   const avatarBg = isGulshan ? 'bg-blue-500/15' : 'bg-amber-500/15';
   const avatarColor = isGulshan ? 'text-blue-500' : 'text-amber-500';
 
@@ -487,7 +487,7 @@ export default function DashboardTab() {
         <div className="flex items-center gap-2 shrink-0">
           {/* Connection status */}
           <div className="flex items-center gap-1.5 mr-1">
-            <div className={`h-2 w-2 rounded-full shrink-0 ${settings?.googleSheetConnected ? 'bg-emerald-500 shadow-[0_0_6px_rgba(16,185,129,0.5)]' : 'bg-muted-foreground/30'}`} />
+            <div className={`h-2 w-2 rounded-full shrink-0 ${settings?.googleSheetConnected ? 'bg-blue-500 shadow-[0_0_6px_rgba(37,99,235,0.5)]' : 'bg-muted-foreground/30'}`} />
             <span className="text-xs text-muted-foreground hidden md:inline">
               {settings?.googleSheetConnected ? 'Connected' : 'Offline'}
             </span>
@@ -511,7 +511,7 @@ export default function DashboardTab() {
             size="sm"
             onClick={handleImportData}
             disabled={isImporting}
-            className="shrink-0 bg-emerald-600 hover:bg-emerald-700"
+            className="shrink-0 bg-blue-600 hover:bg-blue-700"
           >
             {isImporting ? (
               <Loader2 className="h-4 w-4 animate-spin mr-1.5" />
@@ -607,7 +607,7 @@ export default function DashboardTab() {
             title="Add Payment"
             triggerLabel="Add Payment"
             triggerIcon={CreditCard}
-            triggerColor="text-emerald-500"
+            triggerColor="text-blue-500"
             loading={createMutation.isPending}
             partners={partners}
             showPartnerSelect
@@ -1088,7 +1088,7 @@ export default function DashboardTab() {
             ) : pendingTasks.length === 0 ? (
               <div className="flex flex-col items-center py-6 text-center">
                 <ListTodo className="h-8 w-8 text-muted-foreground/30 mb-2" />
-                <p className="text-xs text-muted-foreground">All tasks completed 🎉</p>
+                <p className="text-xs text-muted-foreground">All tasks completed</p>
               </div>
             ) : (
               <div className="max-h-[240px] overflow-y-auto pr-1 space-y-1">
