@@ -42,7 +42,7 @@ export function BottomNav() {
               className={cn(
                 'flex flex-col items-center gap-0.5 px-3 py-1.5 rounded-xl transition-all duration-150 min-w-[56px]',
                 active
-                  ? 'text-emerald-400'
+                  ? 'text-blue-600'
                   : 'text-muted-foreground active:text-foreground'
               )}
             >
@@ -59,7 +59,7 @@ export function BottomNav() {
                 {label}
               </span>
               {active && (
-                <div className="absolute -top-px w-5 h-0.5 rounded-full bg-emerald-400" />
+                <div className="absolute -top-px w-5 h-0.5 rounded-full bg-blue-600" />
               )}
             </button>
           );

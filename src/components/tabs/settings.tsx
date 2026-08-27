@@ -124,7 +124,7 @@ export default function SettingsTab() {
   const [sheets, setSheets] = useState({ sheetId: '', apiKey: '' });
   const [showSheetKey, setShowSheetKey] = useState(false);
   const [appearance, setAppearance] = useState({
-    theme: 'dark', accentColor: 'emerald', currency: '₹',
+    theme: 'light', accentColor: 'blue', currency: '₹',
   });
 
   // Manager form state
@@ -155,7 +155,7 @@ export default function SettingsTab() {
       setSheets({ sheetId: s.googleSheetId || '', apiKey: s.googleApiKey || '' });
       setAppearance({
         theme: s.theme || 'dark',
-        accentColor: s.accentColor || 'emerald',
+        accentColor: s.accentColor || 'blue',
         currency: s.currency || '₹',
       });
     }
@@ -440,8 +440,8 @@ export default function SettingsTab() {
   return (
     <div className="flex flex-col gap-4">
       <div className="flex items-center gap-3">
-        <div className="flex items-center justify-center size-9 rounded-lg bg-emerald-500/10">
-          <Settings className="size-5 text-emerald-500" />
+        <div className="flex items-center justify-center size-9 rounded-lg bg-blue-500/10">
+          <Settings className="size-5 text-blue-500" />
         </div>
         <div>
           <h2 className="text-lg font-semibold">Settings</h2>
@@ -476,7 +476,7 @@ export default function SettingsTab() {
             <Card>
               <CardHeader>
                 <CardTitle className="text-base flex items-center gap-2">
-                  <Building2 className="size-4 text-emerald-500" /> Business Profile
+                  <Building2 className="size-4 text-blue-500" /> Business Profile
                 </CardTitle>
                 <CardDescription>Your business details for invoices, reports, and GST compliance</CardDescription>
               </CardHeader>
@@ -550,7 +550,7 @@ export default function SettingsTab() {
                 <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-4">
                   <div>
                     <CardTitle className="text-base flex items-center gap-2">
-                      <Users className="size-4 text-emerald-500" /> Team Managers
+                      <Users className="size-4 text-blue-500" /> Team Managers
                     </CardTitle>
                     <CardDescription>Manage who has access to your business data</CardDescription>
                   </div>
@@ -579,7 +579,7 @@ export default function SettingsTab() {
                           className="flex items-center justify-between rounded-lg border bg-card p-3 gap-3"
                         >
                           <div className="flex items-center gap-3 min-w-0">
-                            <div className="flex items-center justify-center size-10 rounded-full bg-emerald-500/10 text-emerald-500 font-medium text-sm shrink-0">
+                            <div className="flex items-center justify-center size-10 rounded-full bg-blue-500/10 text-blue-500 font-medium text-sm shrink-0">
                               {m.name.charAt(0).toUpperCase()}
                             </div>
                             <div className="min-w-0">
@@ -589,7 +589,7 @@ export default function SettingsTab() {
                                   variant={m.status === 'active' ? 'default' : 'secondary'}
                                   className={cn(
                                     'text-[10px] px-1.5 py-0',
-                                    m.status === 'active' ? 'bg-emerald-500/10 text-emerald-500 hover:bg-emerald-500/10' : '',
+                                    m.status === 'active' ? 'bg-blue-500/10 text-blue-500 hover:bg-blue-500/10' : '',
                                   )}
                                 >
                                   {m.status}
@@ -736,7 +736,7 @@ export default function SettingsTab() {
               <Card>
                 <CardHeader>
                   <CardTitle className="text-base flex items-center gap-2">
-                    <Bot className="size-4 text-emerald-500" /> AI Connection
+                    <Bot className="size-4 text-blue-500" /> AI Connection
                   </CardTitle>
                   <CardDescription>Enter your AI provider details and verify them before saving</CardDescription>
                 </CardHeader>
@@ -749,7 +749,7 @@ export default function SettingsTab() {
                         href="https://build.nvidia.com/"
                         target="_blank"
                         rel="noopener noreferrer"
-                        className="text-emerald-500 underline underline-offset-2 hover:text-emerald-400"
+                        className="text-blue-500 underline underline-offset-2 hover:text-blue-400"
                       >
                         NVIDIA Build
                       </a>{' '}
@@ -815,7 +815,7 @@ export default function SettingsTab() {
                       </Button>
                     </div>
                     {nvidiaApiKey && (
-                      <p className="text-[11px] text-emerald-500 flex items-center gap-1">
+                      <p className="text-[11px] text-blue-500 flex items-center gap-1">
                         <Check className="size-3" /> API key configured
                       </p>
                     )}
@@ -826,7 +826,7 @@ export default function SettingsTab() {
                     <div className="flex items-center justify-between gap-2">
                       <div className="min-w-0">
                         <p className="text-sm font-medium flex items-center gap-1.5">
-                          <Zap className="size-3.5 text-emerald-500" /> Connection Test
+                          <Zap className="size-3.5 text-blue-500" /> Connection Test
                         </p>
                         <p className="text-[11px] text-muted-foreground mt-0.5">Pings the endpoint with your current key — nothing is saved yet.</p>
                       </div>
@@ -841,7 +841,7 @@ export default function SettingsTab() {
                       </Button>
                     </div>
                     {verifyState === 'success' && verifyResult && (
-                      <div className="flex items-start gap-2 rounded-md bg-emerald-500/10 border border-emerald-500/20 p-2.5 text-xs text-emerald-600 dark:text-emerald-400">
+                      <div className="flex items-start gap-2 rounded-md bg-blue-500/10 border border-blue-500/20 p-2.5 text-xs text-blue-600 dark:text-blue-400">
                         <CheckCircle2 className="size-3.5 mt-0.5 shrink-0" />
                         <div className="min-w-0">
                           <p className="font-medium">Connected ✓</p>
@@ -864,7 +864,7 @@ export default function SettingsTab() {
               <Card>
                 <CardHeader>
                   <CardTitle className="text-base flex items-center gap-2">
-                    <Gauge className="size-4 text-emerald-500" /> Rate Limits
+                    <Gauge className="size-4 text-blue-500" /> Rate Limits
                   </CardTitle>
                   <CardDescription>Protect your free-tier quota from accidental bursts</CardDescription>
                 </CardHeader>
@@ -893,9 +893,9 @@ export default function SettingsTab() {
                       />
                     </div>
                   </div>
-                  <div className="rounded-lg border bg-emerald-500/5 p-3">
+                  <div className="rounded-lg border bg-blue-500/5 p-3">
                     <p className="text-xs text-muted-foreground flex items-start gap-2">
-                      <Shield className="size-3.5 text-emerald-500 mt-0.5 shrink-0" />
+                      <Shield className="size-3.5 text-blue-500 mt-0.5 shrink-0" />
                       Applied automatically to every AI chat request. Defaults: 2 req/sec, 60 req/min — safe for free endpoints, adjustable anytime.
                     </p>
                   </div>
@@ -905,7 +905,7 @@ export default function SettingsTab() {
               <Card>
                 <CardHeader>
                   <CardTitle className="text-base flex items-center gap-2">
-                    <Brain className="size-4 text-emerald-500" /> Response Settings
+                    <Brain className="size-4 text-blue-500" /> Response Settings
                   </CardTitle>
                   <CardDescription>How the AI writes and thinks</CardDescription>
                 </CardHeader>
@@ -922,7 +922,7 @@ export default function SettingsTab() {
                       step={0.05}
                       value={llm.temperature}
                       onChange={(e) => setLlm((p) => ({ ...p, temperature: parseFloat(e.target.value) }))}
-                      className="w-full h-2 rounded-full appearance-none cursor-pointer bg-muted accent-emerald-500"
+                      className="w-full h-2 rounded-full appearance-none cursor-pointer bg-muted accent-blue-500"
                     />
                     <div className="flex justify-between text-[10px] text-muted-foreground">
                       <span>Precise (0)</span>
@@ -949,7 +949,7 @@ export default function SettingsTab() {
                   <div className="flex items-center justify-between">
                     <div className="space-y-0.5">
                       <Label className="text-sm font-medium flex items-center gap-1.5">
-                        <Brain className="size-3.5 text-emerald-500" /> Thinking Mode
+                        <Brain className="size-3.5 text-blue-500" /> Thinking Mode
                       </Label>
                       <p className="text-xs text-muted-foreground">Extended reasoning for complex queries (uses more tokens)</p>
                     </div>
@@ -977,7 +977,7 @@ export default function SettingsTab() {
               <Card>
                 <CardHeader>
                   <CardTitle className="text-base flex items-center gap-2">
-                    <Sheet className="size-4 text-emerald-500" /> Google Sheets Integration
+                    <Sheet className="size-4 text-blue-500" /> Google Sheets Integration
                   </CardTitle>
                   <CardDescription>Sync your business data with Google Sheets for backup and sharing</CardDescription>
                 </CardHeader>
@@ -985,7 +985,7 @@ export default function SettingsTab() {
                   {/* Connection Status */}
                   <div className="flex items-center gap-2 rounded-lg border p-3">
                     {s.googleSheetConnected ? (
-                      <Badge className="bg-emerald-500/10 text-emerald-500 hover:bg-emerald-500/10 border-emerald-500/20 gap-1.5">
+                      <Badge className="bg-blue-500/10 text-blue-500 hover:bg-blue-500/10 border-blue-500/20 gap-1.5">
                         <Zap className="size-3" /> Connected
                       </Badge>
                     ) : (
@@ -1017,7 +1017,7 @@ export default function SettingsTab() {
                       placeholder="Enter Google Sheet ID"
                     />
                     <p className="text-[11px] text-muted-foreground">
-                      From URL: docs.google.com/spreadsheets/d/<span className="text-emerald-500 font-medium">[SHEET_ID]</span>/edit
+                      From URL: docs.google.com/spreadsheets/d/<span className="text-blue-500 font-medium">[SHEET_ID]</span>/edit
                     </p>
                   </div>
 
@@ -1072,7 +1072,7 @@ export default function SettingsTab() {
                       size="sm"
                       onClick={syncDataNow}
                       disabled={isSyncing || (!s.googleSheetConnected && !sheets.sheetId.trim())}
-                      className="gap-1.5 bg-emerald-600 hover:bg-emerald-700 text-white"
+                      className="gap-1.5 bg-blue-600 hover:bg-blue-700 text-white"
                     >
                       {isSyncing ? <Loader2 className="size-3.5 animate-spin" /> : <RefreshCw className="size-3.5" />}
                       {isSyncing ? 'Syncing...' : 'Sync Data'}
@@ -1115,7 +1115,7 @@ export default function SettingsTab() {
               <Card>
                 <CardHeader>
                   <CardTitle className="text-base flex items-center gap-2">
-                    <Clock className="size-4 text-emerald-500" /> Auto Sync
+                    <Clock className="size-4 text-blue-500" /> Auto Sync
                   </CardTitle>
                   <CardDescription>Automatically sync data at regular intervals</CardDescription>
                 </CardHeader>
@@ -1152,9 +1152,9 @@ export default function SettingsTab() {
                           </SelectContent>
                         </Select>
                       </div>
-                      <div className="rounded-lg border bg-emerald-500/5 p-3">
+                      <div className="rounded-lg border bg-blue-500/5 p-3">
                         <p className="text-xs text-muted-foreground flex items-start gap-2">
-                          <Clock className="size-3.5 text-emerald-500 mt-0.5 shrink-0" />
+                          <Clock className="size-3.5 text-blue-500 mt-0.5 shrink-0" />
                           Auto sync runs every <strong>{syncIntervals.find((si) => si.value === (s.syncInterval || 60))?.label || '60 minutes'}</strong>. Data is cached locally for speed.
                         </p>
                       </div>
@@ -1170,7 +1170,7 @@ export default function SettingsTab() {
             <Card>
               <CardHeader>
                 <CardTitle className="text-base flex items-center gap-2">
-                  <Palette className="size-4 text-emerald-500" /> Appearance
+                  <Palette className="size-4 text-blue-500" /> Appearance
                 </CardTitle>
                 <CardDescription>Customize the look and feel of your workspace</CardDescription>
               </CardHeader>
@@ -1252,7 +1252,7 @@ export default function SettingsTab() {
             <Card>
               <CardHeader>
                 <CardTitle className="text-base flex items-center gap-2">
-                  <Bell className="size-4 text-emerald-500" /> Notification Preferences
+                  <Bell className="size-4 text-blue-500" /> Notification Preferences
                 </CardTitle>
                 <CardDescription>Control which alerts and reminders you receive</CardDescription>
               </CardHeader>

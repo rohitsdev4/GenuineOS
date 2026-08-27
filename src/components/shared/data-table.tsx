@@ -110,7 +110,7 @@ export function DataTable<TData, TValue>({
         {onAdd && (
           <Button
             onClick={onAdd}
-            className="bg-emerald-600 hover:bg-emerald-700 text-white shrink-0 shadow-sm"
+            className="bg-blue-600 hover:bg-blue-700 text-white shrink-0 shadow-sm"
           >
             <Plus className="w-4 h-4" />
             {addLabel}

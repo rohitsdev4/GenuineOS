@@ -43,73 +43,81 @@
   --radius-xl: calc(var(--radius) + 4px);
 }
 
+/*
+ * GenuineOS - Light-first application theme
+ * Reference: iOS smart-home dashboard language -
+ * cool-gray canvas (#F2F4F7), white cards (16-20px radius, soft shadow),
+ * blue primary actions (#2563EB), big tabular stat numerals,
+ * semantic accents: green = money-in/success, red = money-out/danger,
+ * amber = warning, blue = active/primary.
+ */
 :root {
-  --radius: 0.8rem;
-  --background: oklch(0.99 0.01 260);
-  --foreground: oklch(0.145 0 0);
+  --radius: 1rem;
+  --background: oklch(0.965 0.004 250);           /* #F2F4F7 cool gray canvas */
+  --foreground: oklch(0.208 0.006 285.885);       /* #111827 */
   --card: oklch(1 0 0);
-  --card-foreground: oklch(0.145 0 0);
+  --card-foreground: oklch(0.208 0.006 285.885);
   --popover: oklch(1 0 0);
-  --popover-foreground: oklch(0.145 0 0);
-  --primary: oklch(0.6 0.15 160);
+  --popover-foreground: oklch(0.208 0.006 285.885);
+  --primary: oklch(0.546 0.245 262.881);          /* #2563EB blue-600 */
   --primary-foreground: oklch(0.985 0 0);
-  --secondary: oklch(0.96 0.01 260);
-  --secondary-foreground: oklch(0.205 0 0);
-  --muted: oklch(0.96 0.01 260);
-  --muted-foreground: oklch(0.556 0 0);
-  --accent: oklch(0.96 0.01 260);
-  --accent-foreground: oklch(0.205 0 0);
-  --destructive: oklch(0.577 0.245 27.325);
-  --border: oklch(0.92 0.01 260);
-  --input: oklch(0.92 0.01 260);
-  --ring: oklch(0.6 0.15 160);
-  --chart-1: oklch(0.646 0.222 41.116);
-  --chart-2: oklch(0.6 0.118 184.704);
-  --chart-3: oklch(0.398 0.07 227.392);
-  --chart-4: oklch(0.828 0.189 84.429);
-  --chart-5: oklch(0.769 0.188 70.08);
-  --sidebar: oklch(0.98 0.01 260);
-  --sidebar-foreground: oklch(0.145 0 0);
-  --sidebar-primary: oklch(0.6 0.15 160);
+  --secondary: oklch(0.947 0.006 247.9);
+  --secondary-foreground: oklch(0.27 0.01 262);
+  --muted: oklch(0.947 0.006 247.9);
+  --muted-foreground: oklch(0.551 0.027 264.364); /* #6B7280 */
+  --accent: oklch(0.938 0.012 255);
+  --accent-foreground: oklch(0.4 0.13 262.9);
+  --destructive: oklch(0.577 0.245 27.325);       /* #DC2626 red-600 */
+  --border: oklch(0.914 0.008 251);
+  --input: oklch(0.914 0.008 251);
+  --ring: oklch(0.546 0.245 262.881);
+  --chart-1: oklch(0.546 0.245 262.881);          /* blue */
+  --chart-2: oklch(0.696 0.17 162.48);            /* emerald */
+  --chart-3: oklch(0.769 0.188 70.08);            /* amber */
+  --chart-4: oklch(0.627 0.265 303.9);            /* violet */
+  --chart-5: oklch(0.645 0.246 16.439);           /* rose */
+  --sidebar: oklch(1 0 0);
+  --sidebar-foreground: oklch(0.208 0.006 285.885);
+  --sidebar-primary: oklch(0.546 0.245 262.881);
   --sidebar-primary-foreground: oklch(0.985 0 0);
-  --sidebar-accent: oklch(0.96 0.01 260);
-  --sidebar-accent-foreground: oklch(0.205 0 0);
-  --sidebar-border: oklch(0.92 0.01 260);
-  --sidebar-ring: oklch(0.6 0.15 160);
+  --sidebar-accent: oklch(0.938 0.012 255);
+  --sidebar-accent-foreground: oklch(0.4 0.13 262.9);
+  --sidebar-border: oklch(0.914 0.008 251);
+  --sidebar-ring: oklch(0.546 0.245 262.881);
 }
 
 .dark {
-  --background: oklch(0.15 0.01 260);
-  --foreground: oklch(0.98 0 0);
-  --card: oklch(0.18 0.01 260);
-  --card-foreground: oklch(0.98 0 0);
-  --popover: oklch(0.18 0.01 260);
-  --popover-foreground: oklch(0.98 0 0);
-  --primary: oklch(0.6 0.15 160);
-  --primary-foreground: oklch(0.1 0 0);
-  --secondary: oklch(0.22 0.02 260);
-  --secondary-foreground: oklch(0.98 0 0);
-  --muted: oklch(0.22 0.02 260);
-  --muted-foreground: oklch(0.7 0.01 260);
-  --accent: oklch(0.22 0.02 260);
-  --accent-foreground: oklch(0.98 0 0);
-  --destructive: oklch(0.6 0.2 25);
+  --background: oklch(0.165 0.014 262);
+  --foreground: oklch(0.97 0.004 250);
+  --card: oklch(0.205 0.016 262);
+  --card-foreground: oklch(0.97 0.004 250);
+  --popover: oklch(0.205 0.016 262);
+  --popover-foreground: oklch(0.97 0.004 250);
+  --primary: oklch(0.623 0.214 259.815);          /* #3B82F6 blue-500 */
+  --primary-foreground: oklch(0.985 0 0);
+  --secondary: oklch(0.25 0.018 262);
+  --secondary-foreground: oklch(0.97 0.004 250);
+  --muted: oklch(0.25 0.018 262);
+  --muted-foreground: oklch(0.72 0.015 255);
+  --accent: oklch(0.28 0.03 262);
+  --accent-foreground: oklch(0.95 0.02 255);
+  --destructive: oklch(0.637 0.237 25.331);
   --border: oklch(1 0 0 / 8%);
   --input: oklch(1 0 0 / 12%);
-  --ring: oklch(0.6 0.15 160 / 60%);
-  --chart-1: oklch(0.488 0.243 264.376);
+  --ring: oklch(0.623 0.214 259.815 / 60%);
+  --chart-1: oklch(0.623 0.214 259.815);
   --chart-2: oklch(0.696 0.17 162.48);
   --chart-3: oklch(0.769 0.188 70.08);
   --chart-4: oklch(0.627 0.265 303.9);
   --chart-5: oklch(0.645 0.246 16.439);
-  --sidebar: oklch(0.16 0.01 260);
-  --sidebar-foreground: oklch(0.98 0 0);
-  --sidebar-primary: oklch(0.6 0.15 160);
-  --sidebar-primary-foreground: oklch(0.1 0 0);
-  --sidebar-accent: oklch(0.22 0.02 260);
-  --sidebar-accent-foreground: oklch(0.98 0 0);
+  --sidebar: oklch(0.18 0.014 262);
+  --sidebar-foreground: oklch(0.97 0.004 250);
+  --sidebar-primary: oklch(0.623 0.214 259.815);
+  --sidebar-primary-foreground: oklch(0.985 0 0);
+  --sidebar-accent: oklch(0.25 0.018 262);
+  --sidebar-accent-foreground: oklch(0.97 0.004 250);
   --sidebar-border: oklch(1 0 0 / 8%);
-  --sidebar-ring: oklch(0.6 0.15 160 / 60%);
+  --sidebar-ring: oklch(0.623 0.214 259.815 / 60%);
 }
 
 @layer base {
@@ -164,39 +172,45 @@
 }
 
 @layer components {
-  /* ── Glassmorphism app background (emerald glow layers) ── */
+  /* Subtle cool-gray ambient wash (calm, flat canvas like the reference) */
   body {
     background-image:
-      radial-gradient(1100px 550px at 12% -8%, oklch(0.6 0.15 160 / 0.13), transparent 60%),
-      radial-gradient(850px 480px at 108% 8%, oklch(0.65 0.2 230 / 0.10), transparent 55%),
-      radial-gradient(750px 560px at 50% 118%, oklch(0.55 0.15 160 / 0.10), transparent 60%);
+      radial-gradient(1200px 600px at 15% -10%, oklch(0.6 0.1 255 / 0.06), transparent 60%),
+      radial-gradient(900px 500px at 110% 10%, oklch(0.62 0.12 230 / 0.05), transparent 55%);
     background-attachment: fixed;
   }
   .dark body {
     background-image:
-      radial-gradient(1100px 550px at 12% -8%, oklch(0.6 0.15 160 / 0.17), transparent 60%),
-      radial-gradient(850px 480px at 108% 8%, oklch(0.65 0.2 230 / 0.13), transparent 55%),
-      radial-gradient(750px 560px at 50% 118%, oklch(0.55 0.15 160 / 0.13), transparent 60%);
+      radial-gradient(1200px 600px at 15% -10%, oklch(0.62 0.14 260 / 0.12), transparent 60%),
+      radial-gradient(900px 500px at 110% 10%, oklch(0.55 0.12 240 / 0.08), transparent 55%);
     background-attachment: fixed;
   }
 
-  /* ── Glass surfaces ── */
+  /* Elevated surfaces - near-opaque, iOS-style translucency for sticky chrome */
   .glass {
-    background: color-mix(in oklab, var(--card) 74%, transparent);
-    backdrop-filter: blur(18px) saturate(140%);
-    -webkit-backdrop-filter: blur(18px) saturate(140%);
-    border: 1px solid color-mix(in oklab, var(--border) 60%, transparent);
+    background: color-mix(in oklab, var(--card) 84%, transparent);
+    backdrop-filter: blur(20px) saturate(150%);
+    -webkit-backdrop-filter: blur(20px) saturate(150%);
+    border: 1px solid color-mix(in oklab, var(--border) 70%, transparent);
   }
   .glass-strong {
-    background: color-mix(in oklab, var(--card) 90%, transparent);
-    backdrop-filter: blur(26px) saturate(160%);
-    -webkit-backdrop-filter: blur(26px) saturate(160%);
-    border: 1px solid color-mix(in oklab, var(--border) 75%, transparent);
+    background: color-mix(in oklab, var(--card) 95%, transparent);
+    backdrop-filter: blur(24px) saturate(160%);
+    -webkit-backdrop-filter: blur(24px) saturate(160%);
+    border: 1px solid color-mix(in oklab, var(--border) 80%, transparent);
   }
   .glass-subtle {
-    background: color-mix(in oklab, var(--muted) 55%, transparent);
+    background: color-mix(in oklab, var(--muted) 60%, transparent);
     backdrop-filter: blur(12px);
     -webkit-backdrop-filter: blur(12px);
-    border: 1px solid color-mix(in oklab, var(--border) 40%, transparent);
+    border: 1px solid color-mix(in oklab, var(--border) 45%, transparent);
+  }
+
+  /* Card elevation - soft diffuse shadow like the reference device cards */
+  .shadow-card {
+    box-shadow: 0 1px 3px rgba(16, 24, 40, 0.06), 0 1px 2px rgba(16, 24, 40, 0.04);
+  }
+  .shadow-card-hover {
+    box-shadow: 0 4px 6px rgba(16, 24, 40, 0.05), 0 10px 20px rgba(16, 24, 40, 0.06);
   }
 }

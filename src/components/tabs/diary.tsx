@@ -474,7 +474,7 @@ export default function DiaryTab() {
         <Button
           onClick={() => openAdd()}
           size="sm"
-          className="bg-emerald-600 hover:bg-emerald-700 text-white gap-1.5"
+          className="bg-blue-600 hover:bg-blue-700 text-white gap-1.5"
         >
           <Plus className="w-4 h-4" />
           New Entry
@@ -598,7 +598,7 @@ export default function DiaryTab() {
               <Button
                 onClick={() => openAdd()}
                 size="sm"
-                className="bg-emerald-600 hover:bg-emerald-700 text-white gap-1.5"
+                className="bg-blue-600 hover:bg-blue-700 text-white gap-1.5"
               >
                 <Plus className="w-4 h-4" />
                 New Entry
@@ -893,7 +893,7 @@ export default function DiaryTab() {
             <Button
               onClick={handleCreate}
               disabled={submitting || !form.title.trim() || !form.content.trim()}
-              className="bg-emerald-600 hover:bg-emerald-700 text-white"
+              className="bg-blue-600 hover:bg-blue-700 text-white"
             >
               {submitting ? 'Creating...' : 'Create Entry'}
             </Button>
@@ -924,7 +924,7 @@ export default function DiaryTab() {
             <Button
               onClick={handleEdit}
               disabled={submitting || !form.title.trim() || !form.content.trim()}
-              className="bg-emerald-600 hover:bg-emerald-700 text-white"
+              className="bg-blue-600 hover:bg-blue-700 text-white"
             >
               {submitting ? 'Saving...' : 'Save Changes'}
             </Button>

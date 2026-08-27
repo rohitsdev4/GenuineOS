@@ -379,7 +379,7 @@ export default function EstimatesTab() {
               <p className="text-xs text-muted-foreground">Total Documents</p>
               <p className="mt-1 text-2xl font-bold tabular-nums">{stats.count}</p>
             </div>
-            <div className="rounded-xl bg-emerald-500/10 p-2.5 text-emerald-500"><ReceiptText className="size-5" /></div>
+            <div className="rounded-xl bg-blue-500/10 p-2.5 text-blue-600"><ReceiptText className="size-5" /></div>
           </CardContent>
         </Card>
         <Card>
@@ -397,7 +397,7 @@ export default function EstimatesTab() {
               <p className="text-xs text-muted-foreground">Accepted / Invoiced</p>
               <p className="mt-1 truncate text-lg font-bold tabular-nums text-emerald-500">{formatCurrency(stats.acceptedValue, currency)}</p>
             </div>
-            <div className="rounded-xl bg-emerald-500/10 p-2.5 text-emerald-500"><FileText className="size-5" /></div>
+            <div className="rounded-xl bg-blue-500/10 p-2.5 text-blue-600"><FileText className="size-5" /></div>
           </CardContent>
         </Card>
         <Card>
@@ -430,7 +430,7 @@ export default function EstimatesTab() {
                   key={t}
                   onClick={() => setTypeFilter(t)}
                   className={`rounded-md px-2.5 py-1 text-xs font-medium transition-colors ${
-                    typeFilter === t ? 'bg-emerald-500 text-white' : 'text-muted-foreground hover:bg-muted'
+                    typeFilter === t ? 'bg-blue-600 text-white' : 'text-muted-foreground hover:bg-muted'
                   }`}
                 >
                   {t === 'all' ? 'All Types' : typeLabels[t]}
@@ -443,7 +443,7 @@ export default function EstimatesTab() {
                   key={s}
                   onClick={() => setStatusFilter(s)}
                   className={`rounded-full border px-2.5 py-0.5 text-xs capitalize transition-colors ${
-                    statusFilter === s ? 'border-emerald-500 bg-emerald-500/10 text-emerald-500' : 'text-muted-foreground hover:bg-muted'
+                    statusFilter === s ? 'border-blue-600 bg-blue-500/10 text-blue-600' : 'text-muted-foreground hover:bg-muted'
                   }`}
                 >
                   {s}
@@ -459,7 +459,7 @@ export default function EstimatesTab() {
         <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-2xl">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
-              <ReceiptText className="size-4 text-emerald-500" />
+              <ReceiptText className="size-4 text-blue-500" />
               {form.id ? 'Edit Document' : 'New Estimate / Quotation / Invoice'}
             </DialogTitle>
           </DialogHeader>
